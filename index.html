@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Continuum</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@1,600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #f6e7c9;
+    --sunrise: #e8894a;
+    --ember: #b4512e;
+    --ink: #070508;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    background: linear-gradient(180deg,
+      #000000 0%, #070508 58%, #1a0b16 72%,
+      #3d1524 80%, #7a2d1e 88%, #b4512e 95%, #cf7a44 100%);
+    color: var(--cream);
+    font-family: Georgia, 'Times New Roman', serif;
+    user-select: none;
+    -webkit-user-select: none;
+    cursor: grab;
+  }
+  body.dragging { cursor: grabbing; }
+  body.paged { cursor: default; }
+
+  .wordmark {
+    position: fixed; left: 50%; top: 44%;
+    transform: translate(-50%, -50%);
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: clamp(3rem, 9vw, 7.5rem);
+    font-style: italic; letter-spacing: 0.04em; font-weight: 600;
+    z-index: 30; pointer-events: none;
+    text-shadow: 0 0 24px rgba(0, 0, 0, 0.9), 0 0 80px rgba(232, 137, 74, 0.45);
+  }
+  /* soft dark scrim between the rings and the wordmark, so the title stays legible */
+  .scrim {
+    position: fixed; left: 50%; top: 45%;
+    transform: translate(-50%, -50%);
+    width: min(72vw, 60rem); height: min(38vh, 22rem);
+    background: radial-gradient(ellipse closest-side, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0.35) 55%, transparent 100%);
+    z-index: 20; pointer-events: none;
+  }
+  .tagline {
+    position: fixed; left: 50%; top: calc(44% + clamp(2.2rem, 6vw, 5rem));
+    transform: translateX(-50%);
+    font-size: clamp(0.8rem, 1.4vw, 1.05rem);
+    font-style: italic; opacity: 0.65; letter-spacing: 0.12em;
+    z-index: 30; pointer-events: none; white-space: nowrap;
+  }
+
+  /* fades in with the zoom: deepens the gradient on branch pages while keeping the plum band alive */
+  #darken {
+    position: fixed; inset: 0; pointer-events: none; opacity: 0;
+    /* fully opaque: on pages the home gradient is replaced outright with the same
+       palette polarised to black and plum. No orange enters the equation. */
+    background: linear-gradient(180deg,
+      #000000 0%, #000000 58%,
+      #0a050c 72%,
+      #1a0b16 84%,
+      #2b1020 94%,
+      #3d1524 100%);
+  }
+
+  #scene { position: fixed; inset: 0; }
+
+  .ring, .ring2 {
+    position: absolute; left: 50%;
+    border: 12px solid rgba(246, 231, 201, 0.85);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    box-shadow:
+      0 0 22px rgba(232, 137, 74, 0.45),
+      0 0 60px rgba(232, 137, 74, 0.18),
+      inset 0 0 22px rgba(232, 137, 74, 0.3);
+  }
+  .ring2 { border-color: rgba(246, 231, 201, 0.55); }
+
+  .node { position: absolute; text-align: center; cursor: pointer; }
+  .node .dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--cream);
+    margin: 0 auto 8px;
+    box-shadow: 0 0 12px rgba(246, 231, 201, 0.8);
+  }
+  .node .label {
+    font-size: var(--label-size, 1rem); letter-spacing: 0.22em; text-transform: uppercase;
+    font-family: Georgia, serif; white-space: nowrap;
+    transition: text-shadow 0.25s;
+  }
+  .node:hover .label { text-shadow: 0 0 18px rgba(246, 231, 201, 0.9); }
+
+  /* description of whichever branch is front-most (home only) */
+  #front-desc {
+    position: fixed; left: 50%; top: 78%;
+    transform: translateX(-50%);
+    width: min(34rem, 82vw);
+    text-align: center; z-index: 30; pointer-events: none;
+    color: var(--cream);
+    text-shadow: 0 1px 12px rgba(0, 0, 0, 0.6);
+  }
+  #front-desc .name {
+    font-size: 1.25rem; letter-spacing: 0.3em; text-transform: uppercase;
+    margin-bottom: 0.5rem; font-weight: bold;
+  }
+  #front-desc .desc { font-style: italic; font-size: 1rem; line-height: 1.5; opacity: 0.85; }
+
+  .hint {
+    position: fixed; bottom: 2.5%; left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.75rem; letter-spacing: 0.25em; text-transform: uppercase;
+    color: rgba(36, 16, 9, 0.55); z-index: 30; pointer-events: none;
+  }
+  @media (max-height: 700px) { .hint { display: none; } }
+
+  /* ---------- branch pages ---------- */
+  #page {
+    position: fixed; inset: 0; z-index: 25;
+    overflow-y: auto;
+    opacity: 0; pointer-events: none;
+  }
+  .page-inner {
+    max-width: 42rem;
+    margin: 0 auto;
+    padding: 34vh 1.5rem 6rem;
+  }
+  .page-inner h1 {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-style: italic; font-weight: 600;
+    font-size: clamp(2.4rem, 6vw, 4.2rem);
+    margin-bottom: 1.2rem;
+    text-shadow: 0 0 40px rgba(232, 137, 74, 0.35);
+  }
+  .page-lede {
+    font-style: italic; font-size: 1.15rem; line-height: 1.65;
+    opacity: 0.9; margin-bottom: 2.4rem;
+  }
+  .page-body p { line-height: 1.85; margin-bottom: 1.3rem; opacity: 0.78; }
+  .page-nav {
+    display: flex; justify-content: space-between;
+    margin-top: 4.5rem;
+    font-size: 0.8rem; letter-spacing: 0.22em; text-transform: uppercase;
+  }
+  .page-nav a { color: var(--cream); text-decoration: none; opacity: 0.7; }
+  .page-nav a:hover { opacity: 1; }
+
+  /* the arc itself is the way back: an invisible strip over the top of a branch page */
+  #ringzone {
+    position: fixed; top: 0; left: 0; right: 0; height: 20vh;
+    z-index: 45; cursor: pointer; pointer-events: none;
+  }
+</style>
+</head>
+<body>
+<div id="darken"></div>
+<div class="scrim"></div>
+<div class="wordmark">Continuum</div>
+<div class="tagline">a fluid architecture for human context</div>
+<div id="scene"></div>
+<div id="front-desc"><div class="name"></div><div class="desc"></div></div>
+<div class="hint">drag or scroll and the ring turns</div>
+
+<div id="ringzone" title="Return to the ring"></div>
+<div id="page"><div class="page-inner">
+  <h1></h1>
+  <div class="page-lede"></div>
+  <div class="page-body"></div>
+  <div class="page-nav"><a class="prev" href="#"></a><a class="next" href="#"></a></div>
+</div></div>
+
+<script>
+  const BRANCHES = [
+    { slug: 'perception', name: 'Perception',
+      desc: 'Sees what you see. Screen, voice and files, captured on your device. Driven by events, never polling, never blocking.',
+      body: [
+        'Continuum begins by watching the way you actually work. When a window changes, when you copy something, when you save a file, when someone speaks in a meeting, an event fires and is captured in microseconds. Nothing polls. Nothing blocks. When you are idle, Continuum costs nothing.',
+        'Everything is read on the device: clean text from the accessibility tree where the system offers it, on-device OCR where it does not. Password fields are never read at all.',
+      ] },
+    { slug: 'memory', name: 'Memory',
+      desc: 'Moments become episodes. Your work, cut at the boundaries where attention truly shifts.',
+      body: [
+        'Raw capture is noise until it is cut at the right joints. Continuum segments your stream at the boundaries that matter: a change of app, a change of subject, a gap of idle time. Each closed segment becomes an episode, deduplicated, redacted, scored for how much it mattered to you.',
+        'Recent memory is kept at full resolution. Older memory is progressively distilled, the way a person remembers a week sharply and a year in themes.',
+      ] },
+    { slug: 'recall', name: 'Recall',
+      desc: 'Any agent can ask what you were doing and get evidence, not guesses.',
+      body: [
+        'Ask your agent what you were doing in any app, yesterday or last week, and it answers from your actual record. Every episode is indexed by meaning, keywords, freshness and importance, and retrieval returns attributed snippets with citations, never inventions.',
+        'Continuum retrieves the evidence. Your agent composes the answer. The division of labour is the point.',
+      ] },
+    { slug: 'knowledge', name: 'Knowledge',
+      desc: 'A temporal graph that never forgets what was true, only records when it stopped being so.',
+      body: [
+        'The most salient parts of your record are distilled into a knowledge graph of people, projects and facts. Every fact is stamped with when it became true. When a new fact supersedes an old one, the old fact is not deleted; it gains an end date.',
+        'This is how Continuum answers not just what is true, but what changed, and what was true before.',
+      ] },
+    { slug: 'preference', name: 'Preference',
+      desc: 'How you like to work, learned once, applied by every agent you use.',
+      body: [
+        'Say "be concise" to one agent and Continuum remembers it for all of them. Standing preferences, stated or observed, are held in one place you control, and served to any agent that connects.',
+        'You approve what is learned. You can edit or dismiss any preference at any time. The agents adapt to you, not the other way around.',
+      ] },
+    { slug: 'privacy', name: 'Privacy',
+      desc: 'Everything stays local, redacted at the boundary. Nothing leaves the device without consent.',
+      body: [
+        'Everything lives on your machine. Personal information is redacted the moment a segment closes, before anything is embedded or stored. Credential managers and password fields are excluded from capture entirely.',
+        'Nothing rolls up to any shared layer except what you approved, after redaction. The company never sees raw data. This is not a setting. It is the architecture.',
+      ] },
+    { slug: 'builders', name: 'Builders',
+      desc: 'Open stages, importable modules. The people building AI people can actually trust.',
+      body: [
+        'Every stage of the pipeline is an importable module: capture, segmentation, indexing, distillation, retrieval. A useful tool is twenty lines. The whole system runs and tests offline, and the intelligence is swappable.',
+        'Continuum is built in the open, by people who believe the way to bring AI to everyone is to never ask them to trade away their privacy for it.',
+      ] },
+  ];
+  const N = BRANCHES.length;
+
+  const scene = document.getElementById('scene');
+  const frontName = document.querySelector('#front-desc .name');
+  const frontDesc = document.querySelector('#front-desc .desc');
+  const frontBox = document.getElementById('front-desc');
+  const wordmark = document.querySelector('.wordmark');
+  const tagline = document.querySelector('.tagline');
+  const scrimEl = document.querySelector('.scrim');
+  const hintEl = document.querySelector('.hint');
+  const pageEl = document.getElementById('page');
+  const darkenEl = document.getElementById('darken');
+  const ringzoneEl = document.getElementById('ringzone');
+  ringzoneEl.addEventListener('click', () => { location.hash = ''; });
+
+  const ring = document.createElement('div'); ring.className = 'ring'; scene.appendChild(ring);
+  const ring2 = document.createElement('div'); ring2.className = 'ring2'; scene.appendChild(ring2);
+
+  const nodes = BRANCHES.map((b, i) => {
+    const el = document.createElement('div'); el.className = 'node';
+    el.innerHTML = '<div class="dot"></div><div class="label">' + b.name + '</div>';
+    el.addEventListener('click', () => {
+      if (dragMoved) return;
+      if (zoomTarget === 1) { if (i === currentIdx) location.hash = ''; }
+      else location.hash = '#/' + b.slug;
+    });
+    scene.appendChild(el);
+    return el;
+  });
+
+  // ---------- state ----------
+  let rot = 0;
+  let vel = 0.0022, targetVel = 0.0022;
+  let zoom = 0, zoomTarget = 0;        // 0 = home ring, 1 = branch page
+  let rotTarget = 0;                    // rot to settle at when zoomed
+  let currentIdx = -1;
+  let swayPhase = 0;
+  const TILT = 0.30;
+  const RING_TILT_DEG = -6;
+
+  const lerp = (a, b, t) => a + (b - a) * t;
+
+  function project(angle, R, cx, cy, leanDeg) {
+    const x0 = Math.cos(angle) * R;
+    const z = Math.sin(angle) * R;
+    const lean = leanDeg * Math.PI / 180;
+    const zt = z * TILT;
+    const x = x0 * Math.cos(lean) - zt * Math.sin(lean);
+    const y = x0 * Math.sin(lean) + zt * Math.cos(lean);
+    const depth = (z / R + 1) / 2;
+    return { x: cx + x, y: cy + y, depth };
+  }
+
+  let W, H, RHOME, RPAGE, CX, CYHOME, CYPAGE;
+  function layout() {
+    W = innerWidth || document.documentElement.clientWidth || 1280;
+    H = innerHeight || document.documentElement.clientHeight || 800;
+    RHOME = Math.max(140, Math.min(W / 2 - 45, 780));
+    RPAGE = Math.min(Math.max(W * 0.62, 520), 950);
+    CX = W / 2;
+    CYHOME = H * 0.55;
+    CYPAGE = H * 0.16 - RPAGE * TILT;   // bottom arc of the giant ring sweeps the top of the page
+    document.documentElement.style.setProperty('--label-size', Math.max(0.58, Math.min(1, RHOME / 300)) + 'rem');
+  }
+  addEventListener('resize', layout); layout();
+
+  // ---------- navigation ----------
+  function renderPage(i) {
+    const b = BRANCHES[i];
+    pageEl.querySelector('h1').textContent = b.name;
+    pageEl.querySelector('.page-lede').textContent = b.desc;
+    pageEl.querySelector('.page-body').innerHTML = b.body.map((p) => '<p>' + p + '</p>').join('');
+    // on the arc, the (i+1) neighbour sits to the LEFT of the front node, (i-1) to the right
+    const leftB = BRANCHES[(i + 1) % N], rightB = BRANCHES[(i + N - 1) % N];
+    const pa = pageEl.querySelector('.prev'), na = pageEl.querySelector('.next');
+    pa.textContent = '← ' + leftB.name; pa.href = '#/' + leftB.slug;
+    na.textContent = rightB.name + ' →'; na.href = '#/' + rightB.slug;
+    pageEl.scrollTop = 0;
+  }
+
+  function nearestAngle(from, to) {
+    // shift `to` by whole turns so the travel from `from` is shortest
+    const TAU = Math.PI * 2;
+    let d = (to - from) % TAU;
+    if (d > Math.PI) d -= TAU;
+    if (d < -Math.PI) d += TAU;
+    return from + d;
+  }
+
+  function applyRoute() {
+    const slug = location.hash.replace(/^#\/?/, '');
+    const i = BRANCHES.findIndex((b) => b.slug === slug);
+    if (i >= 0) {
+      currentIdx = i;
+      renderPage(i);
+      zoomTarget = 1;
+      // node i front-and-centre: its angle must equal PI/2
+      rotTarget = nearestAngle(rot, Math.PI / 2 - (i / N) * Math.PI * 2 - Math.PI / 2);
+      document.body.classList.add('paged');
+    } else {
+      zoomTarget = 0;
+      document.body.classList.remove('paged');
+    }
+  }
+  addEventListener('hashchange', applyRoute);
+
+  // ---------- main loop ----------
+  function frame() {
+    swayPhase += 0.008;
+    zoom += (zoomTarget - zoom) * 0.055;
+    if (Math.abs(zoomTarget - zoom) < 0.001) zoom = zoomTarget;
+    const e = zoom;
+
+    if (zoomTarget === 1) {
+      rot += (rotTarget - rot) * 0.055;
+    } else {
+      rot += vel;
+      vel += (targetVel - vel) * 0.04;
+    }
+    // when zoomed, keep the arc gently orbiting underfoot
+    const rotShown = rot + e * 0.045 * Math.sin(swayPhase * 0.35);
+
+    const R = lerp(RHOME, RPAGE, e);
+    const CY = lerp(CYHOME, CYPAGE, e);
+    const swayAmp = lerp(17, 3, e);
+    const sway = Math.sin(swayPhase * 0.55);
+    const lean1 = RING_TILT_DEG + swayAmp * sway;
+    const lean2 = RING_TILT_DEG - swayAmp * sway;
+
+    const minor = 2 * R * TILT;
+    for (const [el, m, lean] of [[ring, 1, lean1], [ring2, 1.01, lean2]]) {
+      el.style.width = (2 * R * m) + 'px';
+      el.style.height = (minor * m) + 'px';
+      el.style.top = CY + 'px';
+      el.style.transform = 'translate(-50%,-50%) rotate(' + lean + 'deg)';
+    }
+
+    let best = -1, bestDepth = -1;
+    for (let i = 0; i < N; i++) {
+      const a = rotShown + (i / N) * Math.PI * 2 + Math.PI / 2;
+      const p = project(a, R, CX, CY, lean1);
+      const el = nodes[i];
+      const s = (0.55 + p.depth * 0.75) * (1 + 0.35 * e);
+      el.style.transform = 'translate(-50%,-50%) translate(' + p.x + 'px,' + p.y + 'px) scale(' + s + ')';
+      el.style.opacity = (0.18 + p.depth * 0.82) * (e > 0 && i === currentIdx ? 1 : 1 - 0.25 * e);
+      el.style.zIndex = p.depth > 0.5 ? 40 : 10;
+      el.style.filter = 'blur(' + (1.6 * (1 - p.depth)) + 'px)';
+      if (p.depth > bestDepth) { bestDepth = p.depth; best = i; }
+    }
+
+    if (best >= 0 && zoomTarget === 0) {
+      const b = BRANCHES[best];
+      if (frontName.textContent !== b.name) {
+        frontName.textContent = b.name;
+        frontDesc.textContent = b.desc;
+      }
+      const emph = Math.max(0, (bestDepth - 0.85) / 0.15);
+      frontBox.style.opacity = (0.35 + emph * 0.65) * (1 - e);
+    } else {
+      frontBox.style.opacity = 0;
+    }
+
+    // crossfade home chrome vs page
+    const homeA = 1 - e;
+    darkenEl.style.opacity = e;
+    wordmark.style.opacity = homeA;
+    tagline.style.opacity = 0.65 * homeA;
+    scrimEl.style.opacity = homeA;
+    hintEl.style.opacity = homeA;
+    const pageA = Math.max(0, (e - 0.55) / 0.45);
+    pageEl.style.opacity = pageA;
+    pageEl.style.pointerEvents = e > 0.8 ? 'auto' : 'none';
+    ringzoneEl.style.pointerEvents = e > 0.8 ? 'auto' : 'none';
+
+    requestAnimationFrame(frame);
+  }
+
+  // ---------- input (home mode only) ----------
+  let dragging = false, lastX = 0, dragMoved = false;
+  addEventListener('pointerdown', (e) => {
+    if (zoomTarget === 1) return;
+    dragging = true; dragMoved = false; lastX = e.clientX;
+    document.body.classList.add('dragging');
+  });
+  addEventListener('pointerup', () => {
+    dragging = false; document.body.classList.remove('dragging');
+    targetVel = Math.sign(vel || 1) * 0.0022;
+  });
+  addEventListener('pointermove', (e) => {
+    if (!dragging || zoomTarget === 1) return;
+    const dx = e.clientX - lastX; lastX = e.clientX;
+    if (Math.abs(dx) > 3) dragMoved = true;
+    rot += dx * 0.004; vel = dx * 0.004; targetVel = Math.sign(dx || 1) * 0.0022;
+  });
+  addEventListener('wheel', (e) => {
+    if (zoomTarget === 1) return;   // on a page, the wheel scrolls the page
+    const d = (Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY);
+    rot += d * 0.0016; vel = d * 0.0016; targetVel = Math.sign(d || 1) * 0.0022;
+  }, { passive: true });
+
+  applyRoute();
+  if (zoomTarget === 1) { zoom = 1; rot = rotTarget; }   // deep link: land directly on the page
+  frame();
+</script>
+</body>
+</html>
