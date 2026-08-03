@@ -177,13 +177,6 @@
   }
   #front-desc .desc { font-style: italic; font-size: 1rem; line-height: 1.5; opacity: 0.85; }
 
-  .hint {
-    position: fixed; bottom: 2.5%; left: 50%;
-    transform: translateX(-50%);
-    font-size: 0.75rem; letter-spacing: 0.25em; text-transform: uppercase;
-    color: rgba(36, 16, 9, 0.55); z-index: 30; pointer-events: none;
-  }
-  @media (max-height: 700px) { .hint { display: none; } }
 
   /* phones: smaller title, tighter chrome, room for the rounder orbit */
   @media (max-width: 520px) {
@@ -607,7 +600,6 @@
 <div class="subtagline"></div>
 <div id="scene"></div>
 <div id="front-desc"><div class="name"></div><div class="desc"></div></div>
-<div class="hint">drag or scroll and the ring turns</div>
 
 <div id="ringzone" title="Return to orbit"></div>
 <div id="page"><div class="page-inner">
@@ -1271,7 +1263,6 @@
   const subWordmark = document.querySelector('.subwordmark');
   const subTagline = document.querySelector('.subtagline');
   const scrimEl = document.querySelector('.scrim');
-  const hintEl = document.querySelector('.hint');
   const pageEl = document.getElementById('page');
   const darkenEl = document.getElementById('darken');
   const blackoutEl = document.getElementById('blackout');
@@ -1349,6 +1340,7 @@
   let currentIdx = -1, currentOrbIdx = -1;
   let swayPhase = 0;
   let TILT = 0.30;   // ellipse squash; phones get a rounder orbit (set in layout)
+  let IS_MOBILE = false;
   const RING_TILT_DEG = -6;
 
   const lerp = (a, b, t) => a + (b - a) * t;
@@ -1370,6 +1362,7 @@
     W = innerWidth || document.documentElement.clientWidth || 1280;
     H = innerHeight || document.documentElement.clientHeight || 800;
     const mobile = W < 520;
+    IS_MOBILE = mobile;
     // phones: a rounder, fuller orbit that spreads satellites vertically
     TILT = mobile ? 0.66 : 0.30;
     RHOME = mobile ? W / 2 - 16 : Math.max(140, Math.min(W / 2 - 45, 780));
@@ -1521,7 +1514,8 @@
       el.style.transform = 'translate(-50%,-50%) translate(' + p.x + 'px,' + p.y + 'px) scale(' + sc + ')';
       el.style.opacity = ((0.18 + p.depth * 0.82) * (e > 0 && i === currentIdx ? 1 : 1 - 0.25 * e)) * mainA;
       el.style.zIndex = p.depth > 0.5 ? 40 : 10;
-      el.style.filter = 'blur(' + (1.6 * (1 - p.depth)) + 'px)';
+      // depth-of-field blur smears small text on phones — desktop only
+      el.style.filter = IS_MOBILE ? 'none' : 'blur(' + (1.6 * (1 - p.depth)) + 'px)';
       el.style.pointerEvents = (mainA > 0.5 && (zoomTarget === 0 || atTop)) ? 'auto' : 'none';
       if (p.depth > bestDepth) { bestDepth = p.depth; best = i; }
     }
@@ -1552,7 +1546,7 @@
         el.style.transform = 'translate(-50%,-50%) translate(' + p.x + 'px,' + p.y + 'px) scale(' + sc + ')';
         el.style.opacity = ((0.18 + p.depth * 0.82) * (se > 0 && j === currentOrbIdx ? 1 : 1 - 0.25 * se)) * subA;
         el.style.zIndex = p.depth > 0.5 ? 41 : 11;
-        el.style.filter = 'blur(' + (1.6 * (1 - p.depth)) + 'px)';
+        el.style.filter = IS_MOBILE ? 'none' : 'blur(' + (1.6 * (1 - p.depth)) + 'px)';
         el.style.pointerEvents = (subA > 0.5 && (subZoomTarget === 0 || atTop)) ? 'auto' : 'none';
       }
     } else {
@@ -1598,7 +1592,6 @@
     wordmark.style.opacity = homeA;
     tagline.style.opacity = 0.65 * homeA;
     scrimEl.style.opacity = homeA;
-    hintEl.style.opacity = homeA;
     // hub title lives while zoomed into a satellite hub, gone once an orbital opens
     const hubGate = subZoomTarget === 0 ? 0.05 : 0.35;
     const hubA = e * (orbital ? 1 : 0) * (1 - Math.min(1, se / hubGate)) * subWmA;
