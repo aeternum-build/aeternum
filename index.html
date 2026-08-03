@@ -768,6 +768,10 @@
           '<div><label>Date of birth *</label><input name="dob" type="date" required></div>' +
           '<div><label>Gender</label><select name="gender"><option value="" selected>&mdash;</option><option>Male</option><option>Female</option><option>Prefer not to say</option></select></div>' +
         '</div>' +
+        '<div class="frow">' +
+          '<div><label>Alma mater</label><input name="almamater" maxlength="80" placeholder="Institution"></div>' +
+          '<div><label>Field of study</label><select name="fieldstudy"><option value="" selected>&mdash;</option>' + STUDIES.map((s) => '<option>' + s + '</option>').join('') + '</select></div>' +
+        '</div>' +
         '<label>Field of current occupation</label><select name="occupation"><option value="" selected>&mdash;</option>' + OCCUPATIONS.map((o) => '<option>' + o + '</option>').join('') + '</select>' +
         '<div class="frow">' +
           '<div><label>Religion</label><select name="religion"><option value="" selected>&mdash;</option>' + RELIGIONS.map((o) => '<option>' + o + '</option>').join('') + '</select></div>' +
@@ -828,6 +832,7 @@
   const COUNTRIES = ['Afghanistan','Albania','Algeria','Andorra','Angola','Antigua and Barbuda','Argentina','Armenia','Australia','Austria','Azerbaijan','Bahamas','Bahrain','Bangladesh','Barbados','Belarus','Belgium','Belize','Benin','Bhutan','Bolivia','Bosnia and Herzegovina','Botswana','Brazil','Brunei','Bulgaria','Burkina Faso','Burundi','Cabo Verde','Cambodia','Cameroon','Canada','Central African Republic','Chad','Chile','China','Colombia','Comoros','Congo','Costa Rica','Croatia','Cuba','Cyprus','Czechia','DR Congo','Denmark','Djibouti','Dominica','Dominican Republic','Ecuador','Egypt','El Salvador','Equatorial Guinea','Eritrea','Estonia','Eswatini','Ethiopia','Fiji','Finland','France','Gabon','Gambia','Georgia','Germany','Ghana','Greece','Grenada','Guatemala','Guinea','Guinea-Bissau','Guyana','Haiti','Honduras','Hungary','Iceland','India','Indonesia','Iran','Iraq','Ireland','Israel','Italy','Ivory Coast','Jamaica','Japan','Jordan','Kazakhstan','Kenya','Kiribati','Kosovo','Kuwait','Kyrgyzstan','Laos','Latvia','Lebanon','Lesotho','Liberia','Libya','Liechtenstein','Lithuania','Luxembourg','Madagascar','Malawi','Malaysia','Maldives','Mali','Malta','Marshall Islands','Mauritania','Mauritius','Mexico','Micronesia','Moldova','Monaco','Mongolia','Montenegro','Morocco','Mozambique','Myanmar','Namibia','Nauru','Nepal','Netherlands','New Zealand','Nicaragua','Niger','Nigeria','North Korea','North Macedonia','Norway','Oman','Pakistan','Palau','Palestine','Panama','Papua New Guinea','Paraguay','Peru','Philippines','Poland','Portugal','Qatar','Romania','Russia','Rwanda','Saint Kitts and Nevis','Saint Lucia','Saint Vincent and the Grenadines','Samoa','San Marino','Sao Tome and Principe','Saudi Arabia','Senegal','Serbia','Seychelles','Sierra Leone','Singapore','Slovakia','Slovenia','Solomon Islands','Somalia','South Africa','South Korea','South Sudan','Spain','Sri Lanka','Sudan','Suriname','Sweden','Switzerland','Syria','Taiwan','Tajikistan','Tanzania','Thailand','Timor-Leste','Togo','Tonga','Trinidad and Tobago','Tunisia','Turkey','Turkmenistan','Tuvalu','Uganda','Ukraine','United Arab Emirates','United Kingdom','United States','Uruguay','Uzbekistan','Vanuatu','Vatican City','Venezuela','Vietnam','Yemen','Zambia','Zimbabwe'];
   const OCCUPATIONS = ['Software & IT','Engineering (non-software)','Design & Creative','Product & Management','Data & AI','Science & Research','Medicine & Health','Law','Finance & Business','Marketing & Media','Education','Arts & Entertainment','Trades & Manufacturing','Hospitality & Services','Agriculture','Government & Public Service','Student','Between roles','Other'];
   const RELIGIONS = ['Christianity','Islam','Judaism','Hinduism','Buddhism','Sikhism','Taoism','Shinto','Folk / Traditional','Spiritual but not religious','Agnostic','Atheist','Other','Prefer not to say'];
+  const STUDIES = ['Computer Science','Software Engineering','Engineering (other)','Mathematics & Statistics','Physical Sciences','Life Sciences','Medicine & Health Sciences','Business & Economics','Finance & Accounting','Law','Psychology','Social Sciences','Humanities','Philosophy','Arts & Design','Architecture','Education','Communications & Media','Self-taught / No formal study','Other'];
 
   function addProjRow() {
     const rows = document.getElementById('projrows');
@@ -1215,6 +1220,8 @@
       city: v('city'),
       dob: v('dob'),
       gender: v('gender') || null,
+      alma_mater: v('almamater') || null,
+      field_of_study: v('fieldstudy') || null,
       occupation: v('occupation') || null,
       religion: v('religion') || null,
       devoutness: v('religion') ? Number(v('devout')) : null,
