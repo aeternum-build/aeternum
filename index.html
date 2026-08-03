@@ -185,6 +185,18 @@
   }
   @media (max-height: 700px) { .hint { display: none; } }
 
+  /* phones: smaller title, tighter chrome, room for the rounder orbit */
+  @media (max-width: 520px) {
+    .wordmark { font-size: 2.1rem; }
+    .tagline { font-size: 0.68rem; top: calc(44% + 1.9rem); }
+    .subwordmark { font-size: 1.5rem; }
+    .subtagline { font-size: 0.72rem; top: calc(52% + 1.4rem); }
+    #front-desc .name { font-size: 0.95rem; }
+    #front-desc .desc { font-size: 0.85rem; }
+    .page-inner { padding-top: 24vh; }
+    .page-inner h1 { font-size: 2rem; }
+  }
+
   /* ---------- content pages ---------- */
   #page {
     position: fixed; inset: 0; z-index: 25;
@@ -415,10 +427,14 @@
   .dash .chat-log { max-height: none; margin-bottom: 0; }
   @media (max-width: 800px) {
     .dash { flex-direction: column; top: 2vh; left: 2vw; right: 2vw; bottom: 2vh; }
-    .dash-side { width: 100%; flex: 0 0 auto; flex-direction: row; align-items: center; padding: 0.5rem 0.8rem; border-right: none; border-bottom: 1px solid rgba(246, 231, 201, 0.15); }
-    .dash-brand { margin: 0 1rem 0 0; }
-    .dash-nav { flex-direction: row; }
-    .dash-user { margin: 0 0 0 auto; border: none; padding: 0.4rem; }
+    .dash-side {
+      width: 100%; flex: 0 0 auto;
+      max-height: 34%; overflow-y: auto;
+      border-right: none; border-bottom: 1px solid rgba(246, 231, 201, 0.15);
+      padding-top: 0.6rem;
+    }
+    .dash-brand { display: none; }
+    .dash-user { margin-top: 0.3rem; padding: 0.55rem 1.3rem; }
   }
 
   .chat-pinned {
@@ -1332,7 +1348,7 @@
   let subWmA = 0;                               // hub wordmark gate
   let currentIdx = -1, currentOrbIdx = -1;
   let swayPhase = 0;
-  const TILT = 0.30;
+  let TILT = 0.30;   // ellipse squash; phones get a rounder orbit (set in layout)
   const RING_TILT_DEG = -6;
 
   const lerp = (a, b, t) => a + (b - a) * t;
@@ -1353,9 +1369,12 @@
   function layout() {
     W = innerWidth || document.documentElement.clientWidth || 1280;
     H = innerHeight || document.documentElement.clientHeight || 800;
-    RHOME = Math.max(140, Math.min(W / 2 - 45, 780));
+    const mobile = W < 520;
+    // phones: a rounder, fuller orbit that spreads satellites vertically
+    TILT = mobile ? 0.66 : 0.30;
+    RHOME = mobile ? W / 2 - 16 : Math.max(140, Math.min(W / 2 - 45, 780));
     RPAGE = Math.min(Math.max(W * 0.62, 520), 950);
-    RSUB = Math.max(120, Math.min(W / 2 - 85, 560));
+    RSUB = mobile ? W / 2 - 28 : Math.max(120, Math.min(W / 2 - 85, 560));
     CX = W / 2;
     CYHOME = H * 0.44;   // ring centre lifted 20% (was 0.55)
     CYPAGE = H * 0.16 - RPAGE * TILT;
