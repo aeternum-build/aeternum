@@ -796,8 +796,8 @@
         '<button type="button" class="addbtn" onclick="addProjRow()">+ Add another project</button>' +
         '<div style="margin-top:2.2rem"><button type="button" id="verifybtn" onclick="verifyEmail(this.form)">Verify Email</button>' +
         '<span class="vstatus" id="vstatus"></span></div>' +
-        '<div id="coderow" style="display:none"><label>Enter the 6-digit code from your email</label>' +
-        '<input name="vcode" maxlength="6" inputmode="numeric" pattern="[0-9]{6}" placeholder="000000" oninput="checkCode(this.form)" style="max-width:11rem"></div>' +
+        '<div id="coderow" style="display:none"><label>Enter the code from your email</label>' +
+        '<input name="vcode" maxlength="10" inputmode="numeric" pattern="[0-9]{6,10}" placeholder="your code" oninput="checkCode(this.form)" style="max-width:11rem"></div>' +
         '<div id="written" style="display:none">' +
         '<div class="prompt" style="margin-top:1.6rem">In about 300 words, describe your core entrepreneurial ethos and your approach to the future with respect to emerging technologies and global trends. There is no wrong answer.</div>' +
         '<textarea name="ethos" required maxlength="1800" oninput="charCount(this)" style="min-height:12rem"></textarea>' +
@@ -889,7 +889,7 @@
       '<div class="portal-login">' +
       '<p style="font-style:italic;opacity:.7;margin-bottom:1.2rem">The portal opens for members. Sign in with the email your membership carries.</p>' +
       '<input id="pmail" type="email" placeholder="you@example.com">' +
-      '<div id="pcoderow" style="display:none;margin-top:0.8rem"><input id="pcode" maxlength="6" inputmode="numeric" placeholder="6-digit code"></div>' +
+      '<div id="pcoderow" style="display:none;margin-top:0.8rem"><input id="pcode" maxlength="10" inputmode="numeric" placeholder="code from your email"></div>' +
       '<button class="pbtn" id="pgo" onclick="portalAuth(\'' + kind + '\')">Send code</button>' +
       '<div class="pstatus" id="pstatus"></div></div>';
   }
@@ -907,10 +907,10 @@
       if (error) { go.textContent = 'Send code'; status.textContent = 'Could not send the code — ' + error.message; return; }
       codeRow.style.display = '';
       go.textContent = 'Enter';
-      status.textContent = 'A 6-digit code is on its way to ' + mail + '.';
+      status.textContent = 'A code is on its way to ' + mail + '.';
     } else {
       const code = document.getElementById('pcode').value.trim();
-      if (code.length !== 6) { status.textContent = 'The code is 6 digits.'; return; }
+      if (code.length < 6) { status.textContent = 'That code looks too short.'; return; }
       go.disabled = true; go.textContent = 'Checking…';
       const { error } = await sb.auth.verifyOtp({ email: mail, token: code, type: 'email' });
       go.disabled = false;
@@ -1154,7 +1154,7 @@
     'sb_publishable_A9axRYo9--rtkGdaUU1DrA_B1k3ji5v'
   );
 
-  // --- stage gate: stage one ends at Verify Email. A real 6-digit code is
+  // --- stage gate: stage one ends at Verify Email. A real one-time code is
   // emailed via Supabase Auth OTP; entering it unveils stage two. ---
   let emailVerified = false;
   async function verifyEmail(f) {
@@ -1170,11 +1170,18 @@
     }
     btn.disabled = false; btn.textContent = 'Resend code';
     document.getElementById('coderow').style.display = '';
-    document.getElementById('vstatus').textContent = 'A 6-digit code is on its way to ' + em.value + '.';
+    document.getElementById('vstatus').textContent = 'A code is on its way to ' + em.value + '.';
   }
-  async function checkCode(f) {
+  let codeTimer = null;
+  function checkCode(f) {
+    // codes may be 6 or 8+ digits depending on project config — wait for the
+    // typing to settle rather than firing at a fixed length
+    clearTimeout(codeTimer);
+    codeTimer = setTimeout(() => checkCodeNow(f), 650);
+  }
+  async function checkCodeNow(f) {
     const code = f.elements.vcode.value.trim();
-    if (emailVerified || code.length !== 6) return;
+    if (emailVerified || code.length < 6) return;
     document.getElementById('vstatus').textContent = 'Checking…';
     const { error } = await sb.auth.verifyOtp({ email: f.elements.email.value, token: code, type: 'email' });
     if (error) {
