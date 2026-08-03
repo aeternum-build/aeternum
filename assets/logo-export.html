@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Aeternum logo export</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@1,600&display=swap" rel="stylesheet">
+<style>
+  body { background: #0a0710; color: #f6e7c9; font-family: Georgia, serif; padding: 2rem; }
+  h1 { font-style: italic; font-weight: 600; }
+  .row { display: flex; gap: 2rem; flex-wrap: wrap; align-items: flex-end; margin-top: 2rem; }
+  .cell { text-align: center; }
+  canvas { background: transparent; border: 1px dashed rgba(246,231,201,.25); }
+  a.dl { display: block; color: #e8894a; margin-top: .5rem; font-size: .85rem; }
+  .note { opacity: .6; font-style: italic; margin-top: 1rem; }
+</style>
+</head>
+<body>
+<h1>Aeternum logo — export</h1>
+<div class="note">Transparent-background PNGs rendered from the master SVG. Right-click a download link and Save As.</div>
+<div class="row" id="row"></div>
+<script>
+const SIZES = [32, 64, 128, 180, 256, 512, 1024];
+async function render() {
+  await document.fonts.load("italic 600 300px 'Playfair Display'");
+  const svgText = await (await fetch('logo.svg')).text();
+  // inline the font stack result: browsers rasterise <text> with loaded fonts
+  const blob = new Blob([svgText], { type: 'image/svg+xml' });
+  const url = URL.createObjectURL(blob);
+  const img = new Image();
+  img.onload = () => {
+    for (const s of SIZES) {
+      const cv = document.createElement('canvas');
+      cv.width = s; cv.height = s;
+      cv.style.width = Math.min(s, 180) + 'px';
+      cv.style.height = Math.min(s, 180) + 'px';
+      cv.getContext('2d').drawImage(img, 0, 0, s, s);
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.appendChild(cv);
+      const a = document.createElement('a');
+      a.className = 'dl';
+      a.textContent = 'aeternum-' + s + '.png';
+      a.href = cv.toDataURL('image/png');
+      a.download = 'aeternum-' + s + '.png';
+      cell.appendChild(a);
+      document.getElementById('row').appendChild(cell);
+    }
+    URL.revokeObjectURL(url);
+  };
+  img.src = url;
+}
+render();
+</script>
+</body>
+</html>

@@ -3,10 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Continuum</title>
+<title>Aeternum</title>
+<link rel="icon" type="image/svg+xml" href="assets/logo.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@1,600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root {
     --cream: #f6e7c9;
@@ -29,6 +31,52 @@
   body.dragging { cursor: grabbing; }
   body.paged { cursor: default; }
 
+  /* fades in with the zoom: on pages the gradient is the same palette
+     polarised to black and plum. No orange enters the equation. */
+  #darken {
+    position: fixed; inset: 0; pointer-events: none; opacity: 0;
+    background: linear-gradient(180deg,
+      #000000 0%, #000000 58%,
+      #0a050c 72%,
+      #1a0b16 84%,
+      #2b1020 94%,
+      #3d1524 100%);
+  }
+
+  /* third level deep: the background completes its fade to pure black */
+  #blackout { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; }
+
+  /* distant sibling rings drifting through the deep */
+  /* screen blend: drifters may only ever ADD light — over the sunset they wash out
+     instead of flipping into dark silhouettes */
+  #driftlayer { position: fixed; inset: 0; pointer-events: none; mix-blend-mode: screen; }
+  .drift { position: absolute; }
+  .drift div {
+    position: absolute; left: 50%; top: 50%;
+    width: 100%; height: 34%;
+    border: 1px solid rgba(246, 231, 201, 0.5);
+    border-radius: 50%;
+  }
+  .drift div:first-child {
+    transform: translate(-50%, -50%) rotate(14deg);
+    animation: driftSway var(--dur, 8s) ease-in-out var(--del, 0s) infinite;
+  }
+  .drift div:last-child  {
+    transform: translate(-50%, -50%) rotate(-14deg); border-color: rgba(246, 231, 201, 0.3);
+    animation: driftSway2 var(--dur, 8s) ease-in-out var(--del, 0s) infinite;
+  }
+  @keyframes driftSway {
+    0%, 100% { transform: translate(-50%, -50%) rotate(16deg); }
+    50%      { transform: translate(-50%, -50%) rotate(-16deg); }
+  }
+  /* mirrored, not reversed: a symmetric rock played backwards is the same motion */
+  @keyframes driftSway2 {
+    0%, 100% { transform: translate(-50%, -50%) rotate(-16deg); }
+    50%      { transform: translate(-50%, -50%) rotate(16deg); }
+  }
+
+  #scene { position: fixed; inset: 0; }
+
   .wordmark {
     position: fixed; left: 50%; top: 44%;
     transform: translate(-50%, -50%);
@@ -38,7 +86,6 @@
     z-index: 30; pointer-events: none;
     text-shadow: 0 0 24px rgba(0, 0, 0, 0.9), 0 0 80px rgba(232, 137, 74, 0.45);
   }
-  /* soft dark scrim between the rings and the wordmark, so the title stays legible */
   .scrim {
     position: fixed; left: 50%; top: 45%;
     transform: translate(-50%, -50%);
@@ -54,20 +101,25 @@
     z-index: 30; pointer-events: none; white-space: nowrap;
   }
 
-  /* fades in with the zoom: deepens the gradient on branch pages while keeping the plum band alive */
-  #darken {
-    position: fixed; inset: 0; pointer-events: none; opacity: 0;
-    /* fully opaque: on pages the home gradient is replaced outright with the same
-       palette polarised to black and plum. No orange enters the equation. */
-    background: linear-gradient(180deg,
-      #000000 0%, #000000 58%,
-      #0a050c 72%,
-      #1a0b16 84%,
-      #2b1020 94%,
-      #3d1524 100%);
+  /* the centre of a satellite hub: the satellite's own wordmark and lede */
+  .subwordmark {
+    position: fixed; left: 50%; top: 52%;
+    transform: translate(-50%, -50%);
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: clamp(1.8rem, 4.6vw, 3.6rem);
+    font-style: italic; font-weight: 600; letter-spacing: 0.04em;
+    z-index: 30; pointer-events: none; white-space: nowrap;
+    opacity: 0;
+    text-shadow: 0 0 20px rgba(0, 0, 0, 0.9), 0 0 60px rgba(232, 137, 74, 0.4);
   }
-
-  #scene { position: fixed; inset: 0; }
+  .subtagline {
+    position: fixed; left: 50%; top: calc(52% + clamp(1.6rem, 3.4vw, 2.8rem));
+    transform: translateX(-50%);
+    width: min(34rem, 80vw); text-align: center;
+    font-style: italic; font-size: clamp(0.78rem, 1.3vw, 1rem); line-height: 1.5;
+    opacity: 0; letter-spacing: 0.08em;
+    z-index: 30; pointer-events: none;
+  }
 
   .ring, .ring2 {
     position: absolute; left: 50%;
@@ -81,6 +133,19 @@
       inset 0 0 22px rgba(232, 137, 74, 0.3);
   }
   .ring2 { border-color: rgba(246, 231, 201, 0.55); }
+  /* the satellite's own ring is finer */
+  .subring, .subring2 {
+    position: absolute; left: 50%;
+    border: 5px solid rgba(246, 231, 201, 0.8);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none; opacity: 0;
+    box-shadow:
+      0 0 16px rgba(232, 137, 74, 0.4),
+      0 0 40px rgba(232, 137, 74, 0.15),
+      inset 0 0 16px rgba(232, 137, 74, 0.25);
+  }
+  .subring2 { border-color: rgba(246, 231, 201, 0.5); }
 
   .node { position: absolute; text-align: center; cursor: pointer; }
   .node .dot {
@@ -95,8 +160,9 @@
     transition: text-shadow 0.25s;
   }
   .node:hover .label { text-shadow: 0 0 18px rgba(246, 231, 201, 0.9); }
+  .node.subnode .dot { width: 7px; height: 7px; }
+  .node.subnode .label { font-size: calc(var(--label-size, 1rem) * 0.78); }
 
-  /* description of whichever branch is front-most (home only) */
   #front-desc {
     position: fixed; left: 50%; top: 78%;
     transform: translateX(-50%);
@@ -119,16 +185,16 @@
   }
   @media (max-height: 700px) { .hint { display: none; } }
 
-  /* ---------- branch pages ---------- */
+  /* ---------- content pages ---------- */
   #page {
     position: fixed; inset: 0; z-index: 25;
     overflow-y: auto;
     opacity: 0; pointer-events: none;
   }
   .page-inner {
-    max-width: 42rem;
+    max-width: 44rem;
     margin: 0 auto;
-    padding: 34vh 1.5rem 6rem;
+    padding: 30vh 1.5rem 6rem;
   }
   .page-inner h1 {
     font-family: 'Playfair Display', Georgia, serif;
@@ -139,7 +205,7 @@
   }
   .page-lede {
     font-style: italic; font-size: 1.15rem; line-height: 1.65;
-    opacity: 0.9; margin-bottom: 2.4rem;
+    opacity: 0.9; margin-bottom: 2rem;
   }
   .page-body p { line-height: 1.85; margin-bottom: 1.3rem; opacity: 0.78; }
   .page-nav {
@@ -150,23 +216,384 @@
   .page-nav a { color: var(--cream); text-decoration: none; opacity: 0.7; }
   .page-nav a:hover { opacity: 1; }
 
-  /* the arc itself is the way back: an invisible strip over the top of a branch page */
+  /* the arc overhead is always the way back up one level */
   #ringzone {
-    position: fixed; top: 0; left: 0; right: 0; height: 20vh;
+    position: fixed; top: 0; left: 0; right: 0; height: 30vh;
     z-index: 45; cursor: pointer; pointer-events: none;
   }
+
+  /* ---------- listings ---------- */
+  .member { margin-bottom: 1.1rem; }
+  .member .m-name { letter-spacing: 0.14em; text-transform: uppercase; font-size: 0.95rem; }
+  .member .m-name a { color: var(--cream); text-decoration: none; transition: text-shadow 0.25s; }
+  .member .m-name a:hover { text-shadow: 0 0 16px rgba(246, 231, 201, 0.9); }
+  .member .m-tag { opacity: 0.5; font-size: 0.8em; margin-right: 0.15em; }
+  .member .m-legal { opacity: 0.45; font-size: 0.8em; text-transform: none; letter-spacing: 0.05em; font-style: italic; }
+  .member .m-status { font-style: italic; opacity: 0.6; font-size: 0.9rem; }
+
+  .proj {
+    border: 2px solid rgba(246, 231, 201, 0.42);
+    border-radius: 6px;
+    padding: 1.3rem 1.5rem;
+    margin-bottom: 1.4rem;
+    background: rgba(0, 0, 0, 0.25);
+    display: flex; gap: 1.3rem; align-items: flex-start;
+    /* cards run 75% wider than the text column, centred */
+    width: min(175%, 88vw);
+    margin-left: 50%; transform: translateX(-50%);
+  }
+  @media (max-width: 900px) { .proj { width: 100%; } }
+  .p-media {
+    flex: 0 0 78px; height: 78px;
+    border: 1px solid rgba(246, 231, 201, 0.25); border-radius: 8px;
+    background: rgba(0, 0, 0, 0.35);
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden; position: relative;
+  }
+  .p-media img { width: 100%; height: 100%; object-fit: cover; }
+  /* until a logo is uploaded: a faint resting emblem */
+  .p-media-ph { position: relative; width: 44px; height: 44px; }
+  .p-media-ph div {
+    position: absolute; left: 0; right: 0; top: 31%; height: 38%;
+    border: 1px solid rgba(246, 231, 201, 0.35); border-radius: 50%;
+  }
+  .p-media-ph div:first-child { transform: rotate(16deg); }
+  .p-media-ph div:last-child  { transform: rotate(-16deg); border-color: rgba(246, 231, 201, 0.2); }
+  .p-inner { flex: 1; min-width: 0; }
+  .proj .p-head { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 0.4rem; }
+  .proj .p-name { font-family: 'Playfair Display', Georgia, serif; font-style: italic; font-size: 1.3rem; }
+  .proj .p-cat { font-size: 0.68rem; letter-spacing: 0.2em; text-transform: uppercase; opacity: 0.5; }
+  .proj .p-desc { line-height: 1.7; opacity: 0.75; margin-top: 0.6rem; }
+  .p-toggle {
+    background: none; border: none; cursor: pointer;
+    color: var(--cream); opacity: 0.6;
+    font-family: Georgia, serif; font-size: 0.72rem;
+    letter-spacing: 0.2em; text-transform: uppercase;
+    padding: 0; margin-top: 0.9rem;
+  }
+  .p-toggle:hover { opacity: 1; }
+  .p-more {
+    margin-top: 0.9rem; padding-top: 0.9rem;
+    border-top: 1px solid rgba(246, 231, 201, 0.15);
+    line-height: 1.75; opacity: 0.72; font-size: 0.95rem;
+    white-space: pre-line;
+  }
+  .proj a { color: var(--sunrise); text-decoration: none; }
+  .proj a:hover { text-decoration: underline; }
+  .p-links { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.9rem; }
+  .p-links a {
+    border: 1px solid rgba(246, 231, 201, 0.4); border-radius: 999px;
+    padding: 0.3rem 0.95rem;
+    font-size: 0.7rem; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--cream); text-decoration: none;
+    transition: box-shadow 0.25s, border-color 0.25s;
+  }
+  .p-links a:hover { border-color: var(--cream); box-shadow: 0 0 14px rgba(232, 137, 74, 0.35); text-decoration: none; }
+  .p-progress { margin-top: 0.95rem; height: 4px; background: rgba(246, 231, 201, 0.15); border-radius: 999px; overflow: hidden; }
+  .p-progress div { height: 100%; background: linear-gradient(90deg, var(--ember), var(--sunrise)); }
+  .p-progress-note { font-size: 0.68rem; letter-spacing: 0.18em; text-transform: uppercase; opacity: 0.5; margin-top: 0.4rem; }
+
+  /* ---------- portal: chat + news ---------- */
+  .portal input {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(246, 231, 201, 0.28);
+    border-radius: 4px;
+    color: var(--cream);
+    font-family: Georgia, serif; font-size: 1rem;
+    padding: 0.65rem 0.8rem;
+    outline: none;
+  }
+  .portal input:focus { border-color: rgba(246, 231, 201, 0.7); }
+  .portal .pbtn {
+    background: none; cursor: pointer;
+    border: 1px solid rgba(246, 231, 201, 0.5);
+    border-radius: 999px;
+    color: var(--cream);
+    font-family: Georgia, serif;
+    font-size: 0.78rem; letter-spacing: 0.22em; text-transform: uppercase;
+    padding: 0.7rem 1.8rem;
+    transition: box-shadow 0.25s, border-color 0.25s;
+  }
+  .portal .pbtn:hover { border-color: var(--cream); box-shadow: 0 0 24px rgba(232, 137, 74, 0.35); }
+  .portal .pbtn[disabled] { opacity: 0.35; cursor: not-allowed; box-shadow: none; }
+  .portal-login { max-width: 26rem; }
+  .portal-login .pbtn { margin-top: 1.2rem; }
+  .pstatus { font-style: italic; font-size: 0.85rem; opacity: 0.7; margin-top: 0.8rem; }
+  .psignout { font-size: 0.68rem; letter-spacing: 0.2em; text-transform: uppercase; opacity: 0.5; cursor: pointer; background: none; border: none; color: var(--cream); padding: 0; margin-bottom: 1.2rem; }
+  .psignout:hover { opacity: 1; }
+
+  /* ---------- the dashboard shell (once inside the portal) ---------- */
+  .dash {
+    display: flex;
+    /* near-fullscreen: the workspace owns the viewport while the portal is open */
+    position: fixed; top: 3.5vh; left: 3vw; right: 3vw; bottom: 3.5vh;
+    z-index: 46;   /* above the arc and its exit zone */
+    border: 2px solid rgba(246, 231, 201, 0.35);
+    border-radius: 10px;
+    background: #000;
+    overflow: hidden;
+  }
+  .dash-side {
+    width: 200px; flex: 0 0 200px;
+    display: flex; flex-direction: column;
+    border-right: 1px solid rgba(246, 231, 201, 0.15);
+    background: rgba(0, 0, 0, 0.35);
+    padding-top: 1.2rem;
+  }
+  .dash-brand {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-style: italic; font-weight: 600; font-size: 1.15rem;
+    text-align: center; margin-bottom: 1.4rem;
+    text-shadow: 0 0 24px rgba(232, 137, 74, 0.35);
+  }
+  .dash-nav { display: flex; flex-direction: column; }
+  .dash-nav button {
+    text-align: left; background: none; border: none; cursor: pointer;
+    color: var(--cream); opacity: 0.55;
+    font-family: Georgia, serif; font-size: 0.72rem;
+    letter-spacing: 0.2em; text-transform: uppercase;
+    padding: 0.85rem 1.3rem;
+    border-left: 2px solid transparent;
+  }
+  .dash-nav button:hover { opacity: 0.9; }
+  .dash-nav button.active {
+    opacity: 1;
+    border-left-color: var(--sunrise);
+    background: rgba(246, 231, 201, 0.05);
+  }
+  .dash-side { overflow-y: auto; }
+  .grp-h {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0.7rem 1.3rem 0.25rem;
+    font-size: 0.58rem; letter-spacing: 0.24em; text-transform: uppercase;
+    opacity: 0.4; cursor: pointer;
+  }
+  .grp-h:hover { opacity: 0.8; }
+  .grp.closed .grp-b { display: none; }
+  .dash-nav button.sub { padding: 0.5rem 1.3rem 0.5rem 1.7rem; font-size: 0.66rem; }
+  .pdot {
+    display: inline-block; width: 5px; height: 5px; border-radius: 50%;
+    background: var(--cream); opacity: 0.75; margin-right: 0.5rem; vertical-align: middle;
+    box-shadow: 0 0 5px rgba(246, 231, 201, 0.8);
+  }
+  .pdot.director { background: #c05a86; box-shadow: 0 0 6px rgba(192, 90, 134, 0.9); }
+  .newchat-form label { display: block; font-size: 0.68rem; letter-spacing: 0.2em; text-transform: uppercase; opacity: 0.65; margin: 1.1rem 0 0.4rem; }
+  .newchat-form .pick { display: block; margin: 0.35rem 0; font-size: 0.85rem; opacity: 0.8; cursor: pointer; }
+  .newchat-form input[type="checkbox"] { accent-color: var(--sunrise); margin-right: 0.6rem; }
+
+  .dash-user {
+    margin-top: auto;
+    padding: 1rem 1.3rem;
+    border-top: 1px solid rgba(246, 231, 201, 0.12);
+    font-size: 0.72rem;
+  }
+  .dash-user .du-h { letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 0.35rem; }
+  .dash-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .dash-head {
+    padding: 0.95rem 1.5rem;
+    border-bottom: 1px solid rgba(246, 231, 201, 0.15);
+    font-family: 'Playfair Display', Georgia, serif;
+    font-style: italic; font-size: 1.05rem;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .dash-close {
+    background: none; border: none; cursor: pointer;
+    color: var(--cream); opacity: 0.5;
+    font-family: Georgia, serif; font-size: 1.25rem; line-height: 1;
+    padding: 0 0 0 1rem;
+    transition: opacity 0.2s, text-shadow 0.2s;
+  }
+  .dash-close:hover { opacity: 1; text-shadow: 0 0 12px rgba(232, 137, 74, 0.6); }
+  .dash-body { flex: 1; overflow-y: auto; padding: 1.2rem 1.5rem; }
+  .dash-foot {
+    display: flex; gap: 0.7rem;
+    padding: 0.9rem 1.5rem;
+    border-top: 1px solid rgba(246, 231, 201, 0.15);
+  }
+  .dash-foot input { flex: 1; }
+  .dash .chat-log { max-height: none; margin-bottom: 0; }
+  @media (max-width: 800px) {
+    .dash { flex-direction: column; top: 2vh; left: 2vw; right: 2vw; bottom: 2vh; }
+    .dash-side { width: 100%; flex: 0 0 auto; flex-direction: row; align-items: center; padding: 0.5rem 0.8rem; border-right: none; border-bottom: 1px solid rgba(246, 231, 201, 0.15); }
+    .dash-brand { margin: 0 1rem 0 0; }
+    .dash-nav { flex-direction: row; }
+    .dash-user { margin: 0 0 0 auto; border: none; padding: 0.4rem; }
+  }
+
+  .chat-pinned {
+    border: 1px solid rgba(232, 137, 74, 0.55); border-radius: 6px;
+    padding: 0.75rem 1rem; margin-bottom: 1rem;
+    background: rgba(0, 0, 0, 0.35); font-size: 0.92rem;
+  }
+  .chat-log { display: flex; flex-direction: column; gap: 0.7rem; max-height: 48vh; overflow-y: auto; padding-right: 0.4rem; margin-bottom: 1rem; }
+  .msg .m-h { display: flex; gap: 0.55rem; align-items: baseline; flex-wrap: wrap; }
+  .msg .m-handle { letter-spacing: 0.12em; text-transform: uppercase; font-size: 0.78rem; }
+  /* rank as orbits: member is a point of light, executive gains a ring,
+     the director carries the crossed rings of the emblem itself */
+  .rb { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.58rem; letter-spacing: 0.22em; text-transform: uppercase; opacity: 0.7; }
+  .rb-orb { position: relative; width: 15px; height: 15px; flex: 0 0 15px; }
+  .rb-orb::before {
+    content: ''; position: absolute; left: 50%; top: 50%;
+    width: 3px; height: 3px; margin: -1.5px 0 0 -1.5px;
+    border-radius: 50%; background: var(--cream);
+    box-shadow: 0 0 6px rgba(246, 231, 201, 0.9);
+  }
+  .rb-orb::after, .rb-orb i {
+    content: ''; position: absolute; left: 0; right: 0; top: 32%; height: 36%;
+    border: 1px solid rgba(246, 231, 201, 0.7); border-radius: 50%;
+    display: none;
+  }
+  .rb.executive { opacity: 0.95; }
+  .rb.executive .rb-orb::after { display: block; transform: rotate(14deg); }
+  /* the director wears the gradient's plum, lifted to luminosity (#3d1524 at full glow) */
+  .rb.director { color: #c05a86; opacity: 1; text-shadow: 0 0 10px rgba(192, 90, 134, 0.5); }
+  .rb.director .rb-orb::before { background: #c05a86; box-shadow: 0 0 8px rgba(192, 90, 134, 1); }
+  .rb.director .rb-orb::after { display: block; transform: rotate(16deg); border-color: rgba(192, 90, 134, 0.95); }
+  .rb.director .rb-orb i { display: block; transform: rotate(-16deg); border-color: rgba(192, 90, 134, 0.55); }
+  /* the resident intelligence wears the ember orbit */
+  .rb.claude { color: var(--sunrise); opacity: 1; text-shadow: 0 0 10px rgba(232, 137, 74, 0.45); }
+  .rb.claude .rb-orb::before { background: var(--sunrise); box-shadow: 0 0 8px rgba(232, 137, 74, 1); }
+  .rb.claude .rb-orb::after { display: block; transform: rotate(16deg); border-color: rgba(232, 137, 74, 0.95); }
+  .rb.claude .rb-orb i { display: block; transform: rotate(-16deg); border-color: rgba(232, 137, 74, 0.55); }
+  .msg .m-time { font-size: 0.62rem; opacity: 0.4; }
+  .msg .m-text { opacity: 0.85; line-height: 1.55; }
+  .msg .m-act { font-size: 0.6rem; opacity: 0.4; cursor: pointer; letter-spacing: 0.15em; text-transform: uppercase; background: none; border: none; color: var(--cream); padding: 0; margin-left: 0.6rem; }
+  .msg .m-act:hover { opacity: 1; }
+  .chat-input { display: flex; gap: 0.7rem; }
+  .chat-input input { flex: 1; }
+
+  .news-item {
+    border: 1px solid rgba(246, 231, 201, 0.3); border-radius: 6px;
+    padding: 1rem 1.2rem; margin-bottom: 1rem; background: rgba(0, 0, 0, 0.25);
+  }
+  .news-item .n-title { font-family: 'Playfair Display', Georgia, serif; font-style: italic; font-size: 1.1rem; }
+  .news-item .n-meta { font-size: 0.65rem; letter-spacing: 0.18em; text-transform: uppercase; opacity: 0.45; margin-top: 0.25rem; }
+  .news-item .n-summary { line-height: 1.65; opacity: 0.78; margin-top: 0.55rem; font-size: 0.95rem; }
+  .news-item .n-why { font-style: italic; opacity: 0.6; margin-top: 0.5rem; font-size: 0.9rem; }
+  .news-item a { color: var(--sunrise); text-decoration: none; }
+  .news-item a:hover { text-decoration: underline; }
+
+  /* ---------- coming soon card: a gold mail stamp ---------- */
+  .stamp {
+    padding: 11px;
+    background: var(--cream);
+    /* perforated edge: a tiled row of punched holes rides the outer boundary;
+       the second mask layer keeps the interior solid */
+    -webkit-mask-image: radial-gradient(circle 5px at 8px 8px, transparent 98%, #000), linear-gradient(#000 0 0);
+    -webkit-mask-size: 16px 16px, calc(100% - 10px) calc(100% - 10px);
+    -webkit-mask-position: -8px -8px, 5px 5px;
+    -webkit-mask-repeat: round, no-repeat;
+    mask-image: radial-gradient(circle 5px at 8px 8px, transparent 98%, #000), linear-gradient(#000 0 0);
+    mask-size: 16px 16px, calc(100% - 10px) calc(100% - 10px);
+    mask-position: -8px -8px, 5px 5px;
+    mask-repeat: round, no-repeat;
+  }
+  .coming {
+    background: #000;
+    padding: 3.2rem 1.5rem;
+    text-align: center;
+  }
+  .coming .c-orbits { position: relative; width: 70px; height: 70px; margin: 0 auto 1.5rem; }
+  .coming .c-orbits div {
+    position: absolute; left: 0; right: 0; top: 31%; height: 38%;
+    border: 1px solid rgba(246, 231, 201, 0.65);
+    border-radius: 50%;
+    box-shadow: 0 0 12px rgba(232, 137, 74, 0.3);
+  }
+  .coming .c-orbits div:first-child { animation: comingSway 7s ease-in-out infinite; }
+  .coming .c-orbits div:last-child  { animation: comingSway 7s ease-in-out infinite reverse; border-color: rgba(246, 231, 201, 0.35); }
+  @keyframes comingSway { 0%, 100% { transform: rotate(16deg); } 50% { transform: rotate(-16deg); } }
+  .coming .c-title {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-style: italic; font-weight: 600; font-size: 1.7rem;
+    letter-spacing: 0.04em;
+    text-shadow: 0 0 30px rgba(232, 137, 74, 0.4);
+  }
+  .coming .c-sub { font-style: italic; opacity: 0.5; margin-top: 0.55rem; font-size: 0.9rem; }
+
+  /* ---------- application form ---------- */
+  .frow { display: flex; gap: 0.9rem; flex-wrap: wrap; }
+  .frow > div { flex: 1; min-width: 10rem; }
+  form.apply select {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(246, 231, 201, 0.28);
+    border-radius: 4px;
+    color: var(--cream);
+    font-family: Georgia, serif; font-size: 1rem;
+    padding: 0.65rem 0.8rem;
+    outline: none;
+  }
+  form.apply select:focus { border-color: rgba(246, 231, 201, 0.7); }
+  form.apply option { background: #14090f; color: var(--cream); }
+  form.apply input[type="date"] { color-scheme: dark; }
+  form.apply input[type="range"] { accent-color: var(--sunrise); padding: 0; }
+  .rangeval { font-family: 'Playfair Display', Georgia, serif; font-style: italic; font-size: 1.1rem; margin-left: 0.8rem; }
+  .projrow { display: flex; gap: 0.9rem; margin-bottom: 0.7rem; flex-wrap: wrap; }
+  .projrow input { flex: 1; min-width: 9rem; }
+  .addbtn {
+    background: none; cursor: pointer;
+    border: 1px dashed rgba(246, 231, 201, 0.4);
+    border-radius: 4px;
+    color: var(--cream); opacity: 0.75;
+    font-family: Georgia, serif; font-size: 0.78rem;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    padding: 0.55rem 1.1rem; margin-top: 0.2rem;
+  }
+  .addbtn:hover { opacity: 1; border-style: solid; }
+  .prompt { font-style: italic; opacity: 0.7; line-height: 1.6; margin-bottom: 0.7rem; font-size: 0.95rem; }
+  .vstatus { font-style: italic; font-size: 0.85rem; opacity: 0.7; margin-left: 0.9rem; }
+  form.apply button[disabled] { opacity: 0.35; cursor: not-allowed; box-shadow: none; }
+  .wordcount { text-align: right; font-size: 0.75rem; letter-spacing: 0.15em; opacity: 0.55; margin-top: 0.4rem; }
+  form.apply label {
+    display: block; font-size: 0.72rem; letter-spacing: 0.22em;
+    text-transform: uppercase; opacity: 0.7; margin: 1.4rem 0 0.45rem;
+  }
+  form.apply input, form.apply textarea {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(246, 231, 201, 0.28);
+    border-radius: 4px;
+    color: var(--cream);
+    font-family: Georgia, serif; font-size: 1rem;
+    padding: 0.65rem 0.8rem;
+    outline: none;
+  }
+  form.apply input:focus, form.apply textarea:focus { border-color: rgba(246, 231, 201, 0.7); }
+  form.apply textarea { min-height: 7.5rem; resize: vertical; }
+  form.apply button {
+    margin-top: 1.8rem;
+    background: none; cursor: pointer;
+    border: 1px solid rgba(246, 231, 201, 0.5);
+    border-radius: 999px;
+    color: var(--cream);
+    font-family: Georgia, serif;
+    font-size: 0.8rem; letter-spacing: 0.25em; text-transform: uppercase;
+    padding: 0.8rem 2.2rem;
+    transition: box-shadow 0.25s, border-color 0.25s;
+  }
+  form.apply button:hover {
+    border-color: var(--cream);
+    box-shadow: 0 0 24px rgba(232, 137, 74, 0.35);
+  }
+  .form-note { font-style: italic; font-size: 0.85rem; opacity: 0.55; margin-top: 1rem; }
 </style>
 </head>
 <body>
 <div id="darken"></div>
+<div id="blackout"></div>
+<div id="driftlayer"></div>
 <div class="scrim"></div>
-<div class="wordmark">Continuum</div>
-<div class="tagline">a fluid architecture for human context</div>
+<div class="wordmark">Aeternum</div>
+<div class="tagline">vis, amor, creatio</div>
+<div class="subwordmark"></div>
+<div class="subtagline"></div>
 <div id="scene"></div>
 <div id="front-desc"><div class="name"></div><div class="desc"></div></div>
 <div class="hint">drag or scroll and the ring turns</div>
 
-<div id="ringzone" title="Return to the ring"></div>
+<div id="ringzone" title="Return to orbit"></div>
 <div id="page"><div class="page-inner">
   <h1></h1>
   <div class="page-lede"></div>
@@ -175,91 +602,734 @@
 </div></div>
 
 <script>
-  const BRANCHES = [
-    { slug: 'perception', name: 'Perception',
-      desc: 'Sees what you see. Screen, voice and files, captured on your device. Driven by events, never polling, never blocking.',
-      body: [
-        'Continuum begins by watching the way you actually work. When a window changes, when you copy something, when you save a file, when someone speaks in a meeting, an event fires and is captured in microseconds. Nothing polls. Nothing blocks. When you are idle, Continuum costs nothing.',
-        'Everything is read on the device: clean text from the accessibility tree where the system offers it, on-device OCR where it does not. Password fields are never read at all.',
-      ] },
-    { slug: 'memory', name: 'Memory',
-      desc: 'Moments become episodes. Your work, cut at the boundaries where attention truly shifts.',
-      body: [
-        'Raw capture is noise until it is cut at the right joints. Continuum segments your stream at the boundaries that matter: a change of app, a change of subject, a gap of idle time. Each closed segment becomes an episode, deduplicated, redacted, scored for how much it mattered to you.',
-        'Recent memory is kept at full resolution. Older memory is progressively distilled, the way a person remembers a week sharply and a year in themes.',
-      ] },
-    { slug: 'recall', name: 'Recall',
-      desc: 'Any agent can ask what you were doing and get evidence, not guesses.',
-      body: [
-        'Ask your agent what you were doing in any app, yesterday or last week, and it answers from your actual record. Every episode is indexed by meaning, keywords, freshness and importance, and retrieval returns attributed snippets with citations, never inventions.',
-        'Continuum retrieves the evidence. Your agent composes the answer. The division of labour is the point.',
-      ] },
-    { slug: 'knowledge', name: 'Knowledge',
-      desc: 'A temporal graph that never forgets what was true, only records when it stopped being so.',
-      body: [
-        'The most salient parts of your record are distilled into a knowledge graph of people, projects and facts. Every fact is stamped with when it became true. When a new fact supersedes an old one, the old fact is not deleted; it gains an end date.',
-        'This is how Continuum answers not just what is true, but what changed, and what was true before.',
-      ] },
-    { slug: 'preference', name: 'Preference',
-      desc: 'How you like to work, learned once, applied by every agent you use.',
-      body: [
-        'Say "be concise" to one agent and Continuum remembers it for all of them. Standing preferences, stated or observed, are held in one place you control, and served to any agent that connects.',
-        'You approve what is learned. You can edit or dismiss any preference at any time. The agents adapt to you, not the other way around.',
-      ] },
-    { slug: 'privacy', name: 'Privacy',
-      desc: 'Everything stays local, redacted at the boundary. Nothing leaves the device without consent.',
-      body: [
-        'Everything lives on your machine. Personal information is redacted the moment a segment closes, before anything is embedded or stored. Credential managers and password fields are excluded from capture entirely.',
-        'Nothing rolls up to any shared layer except what you approved, after redaction. The company never sees raw data. This is not a setting. It is the architecture.',
-      ] },
-    { slug: 'builders', name: 'Builders',
-      desc: 'Open stages, importable modules. The people building AI people can actually trust.',
-      body: [
-        'Every stage of the pipeline is an importable module: capture, segmentation, indexing, distillation, retrieval. A useful tool is twenty lines. The whole system runs and tests offline, and the intelligence is swappable.',
-        'Continuum is built in the open, by people who believe the way to bring AI to everyone is to never ask them to trade away their privacy for it.',
-      ] },
-  ];
-  const N = BRANCHES.length;
+  // ---------------- content ----------------
+  // members are listed by a social handle of their choosing; legal name optional
+  const PLATFORMS = {
+    github:   { tag: 'gh',   base: 'https://github.com/' },
+    x:        { tag: 'x',    base: 'https://x.com/' },
+    linkedin: { tag: 'in',   base: 'https://linkedin.com/in/' },
+    bluesky:  { tag: 'bsky', base: 'https://bsky.app/profile/' },
+    mastodon: { tag: 'mast', base: '' },
+    web:      { tag: 'web',  base: '' },
+  };
+  const MEMBERS = {
+    director: [
+      { handle: '@redpropriety', platform: 'x', status: 'Founder and Director' },
+    ],
+    executives: [
+      { label: 'Executive seats are open', status: 'appointed from within the membership' },
+    ],
+    members: [
+      { label: 'Founding memberships are open', status: 'apply through the Apply satellite' },
+    ],
+  };
 
+  const CATS = [
+    { slug: 'corporate', name: 'For Corporate' },
+    { slug: 'developer', name: 'For Developers' },
+    { slug: 'lifestyle', name: 'For Lifestyle' },
+    { slug: 'everyone',  name: 'For Everything' },
+    { slug: 'fun',       name: 'For Fun' },
+  ];
+
+  // dummy rows simulating the future Supabase `projects` table
+  // image: url of a logo (null shows the resting emblem) · details: expandable specs text
+  const PROJECTS = {
+    completed: {
+      corporate: [
+        { name: 'Ledgerline', image: null,
+          desc: 'A quiet operations ledger for small teams: decisions, spending and commitments in one auditable stream.',
+          details: 'Built for teams of 2 to 50.\nExports to CSV and PDF. Role-based access. Data encrypted at rest.\nRuns in any modern browser; nothing to install.',
+          links: [{ platform: 'web', url: '#' }] },
+      ],
+      developer: [],
+      lifestyle: [
+        { name: 'Fieldnote', image: null,
+          desc: 'A pocket journal that captures a thought in three seconds and files it where you will actually find it again.',
+          details: 'iOS 16+ and Android 12+.\nOn-device transcription. Offline first, syncs when you are.\nExport everything, any time, in plain markdown.',
+          links: [{ platform: 'ios', url: '#' }, { platform: 'android', url: '#' }] },
+      ],
+      everyone: [],
+      fun: [
+        { name: 'Turntable', image: null,
+          desc: 'A shared listening room. Drop a track on the table and everyone in the orbit hears it together.',
+          details: 'Rooms of up to 24 listeners.\nWindows 10+, macOS 13+, or straight from the browser.\nNo accounts for guests; the room key is the invitation.',
+          links: [{ platform: 'windows', url: '#' }, { platform: 'macos', url: '#' }, { platform: 'web', url: '#' }, { platform: 'source', url: '#' }] },
+      ],
+    },
+    inbound: {
+      corporate: [
+        { name: 'Consensus', image: null, release: '2027', progress: 25,
+          desc: 'Structured decision-making for collectives: propose, argue, vote, and remember why.',
+          details: 'Proposals with structured argument threads.\nWeighted and simple majority voting. A permanent, searchable record of every decision and its reasoning.' },
+      ],
+      developer: [
+        { name: 'Continuum', image: null, release: '2026', progress: 70,
+          desc: 'Your whole desktop context, everything you have seen, read, typed and heard, served to any agent as a single MCP. Local first and private. The core pipeline is complete; Windows capture is in flight.',
+          details: 'Capture, segment, index and distil as importable modules.\nServes recall, catch up and profile tools over MCP to any agent.\nEverything stays on the device. PII is redacted before anything is stored.',
+          links: [{ platform: 'source', url: 'https://github.com/ExperimentalGuava/continuum' }] },
+      ],
+      lifestyle: [],
+      everyone: [
+        { name: 'Beacon', image: null, release: '2027', progress: 40,
+          desc: 'An ambient companion that surfaces what matters before you ask, and stays silent otherwise.',
+          details: 'Signals over notifications: a single quiet surface instead of a hundred pings.\nWorks with your calendar, mail and messages. Private by architecture.' },
+      ],
+      fun: [],
+    },
+  };
+
+  const DEVICE = { windows: 'Windows', macos: 'macOS', linux: 'Linux', ios: 'iOS', android: 'Android', web: 'Web', source: 'Source' };
+  // every category's projects in one view, each card tagged with where it belongs
+  const allProjects = (kind) => CATS.flatMap((c) => PROJECTS[kind][c.slug].map((p) => ({ ...p, cat: c.name })));
+  function toggleProj(btn) {
+    const more = btn.nextElementSibling;
+    const open = more.style.display !== 'none';
+    more.style.display = open ? 'none' : '';
+    btn.textContent = open ? 'Details' : 'Close';
+  }
+
+  const projCards = (items) => items.length
+    ? items.map((p) =>
+        '<div class="proj">' +
+        '<div class="p-media">' + (p.image ? '<img src="' + p.image + '" alt="' + p.name + '">' : '<div class="p-media-ph"><div></div><div></div></div>') + '</div>' +
+        '<div class="p-inner">' +
+        '<div class="p-head"><span class="p-name">' + p.name + '</span>' + (p.cat ? '<span class="p-cat">' + p.cat + '</span>' : '') + '</div>' +
+        '<div class="p-desc">' + p.desc + '</div>' +
+        (p.links && p.links.length
+          ? '<div class="p-links">' + p.links.map((l) => '<a href="' + l.url + '" target="_blank" rel="noopener">' + (DEVICE[l.platform] || l.platform) + '</a>').join('') + '</div>'
+          : '') +
+        (typeof p.progress === 'number'
+          ? '<div class="p-progress"><div style="width:' + p.progress + '%"></div></div><div class="p-progress-note">' + p.progress + '% complete' + (p.release ? ', arriving ' + p.release : '') + '</div>'
+          : '') +
+        (p.details
+          ? '<button type="button" class="p-toggle" onclick="toggleProj(this)">Details</button><div class="p-more" style="display:none">' + p.details + '</div>'
+          : '') +
+        '</div></div>').join('')
+    : '<p style="font-style:italic;opacity:.55">Nothing here yet. The forge is warm.</p>';
+
+  const comingCard = () =>
+    '<div class="stamp"><div class="coming"><div class="c-orbits"><div></div><div></div></div>' +
+    '<div class="c-title">Coming Soon</div></div></div>';
+
+  const memberList = (items) => items.map((m) => {
+    if (!m.handle) {   // placeholder rows (open seats etc.)
+      return '<div class="member"><div class="m-name">' + m.label + '</div><div class="m-status">' + m.status + '</div></div>';
+    }
+    const pf = PLATFORMS[m.platform] || { tag: m.platform, base: '' };
+    const url = m.url || (pf.base ? pf.base + m.handle.replace(/^@/, '') : '#');
+    return '<div class="member"><div class="m-name">' +
+      '<a href="' + url + '" target="_blank" rel="noopener"><span class="m-tag">' + pf.tag + ':</span>' + m.handle + '</a>' +
+      (m.name ? ' <span class="m-legal">' + m.name + '</span>' : '') +
+      '</div><div class="m-status">' + m.status + '</div></div>';
+  }).join('');
+
+  const SECTIONS = [
+    { slug: 'who-we-are', name: 'Who We Are',
+      desc: 'A collective of builders and creators, adopting emerging technologies to ship high quality products across many fields, and keeping one another sharp as the future arrives.',
+      orbitals: [
+        { slug: 'the-director', name: 'The Director',
+          html: () => memberList(MEMBERS.director) },
+        { slug: 'the-executives', name: 'The Executives',
+          html: comingCard },
+        { slug: 'the-members', name: 'The Members',
+          html: comingCard },
+      ] },
+
+    { slug: 'our-mission', name: 'Our Mission',
+      desc: 'As humanity approaches the technological singularity, it\'s our mission to adopt emerging technologies to build, refine and release high quality products across a vast range of fields and spaces. Our ethos surrounds the acceptance, growth, and application of Artificial Intelligence in how it can be melded to daily life and the rest of history.',
+      orbitals: [
+        { slug: 'our-beliefs', name: 'Our Beliefs',
+          html: comingCard },
+        { slug: 'our-outlook', name: 'Our Outlook',
+          html: comingCard },
+      ] },
+
+    { slug: 'application', name: 'Apply',
+      desc: 'Aeternum grows by invitation and by application. Show us how you operate and what you have built; accepted members join the collective, its portal, and its projects.',
+      orbitals: [],
+      html: () => (
+        '<form class="apply" onsubmit="return sendApplication(this)">' +
+        '<div class="frow">' +
+          '<div><label>First name *</label><input name="first" maxlength="25" required></div>' +
+          '<div><label>Last name *</label><input name="last" maxlength="25" required></div>' +
+        '</div>' +
+        '<label>Middle names</label><input name="middle" maxlength="100">' +
+        '<label>Contact email *</label><input name="email" type="email" required oninput="emailChanged(this.form)">' +
+        '<div class="frow">' +
+          '<div style="flex:0 1 8rem"><label>Country code *</label><input name="cc" placeholder="+61" pattern="\\+?[0-9]{1,4}" maxlength="5" required></div>' +
+          '<div><label>Contact phone *</label><input name="phone" type="tel" pattern="[0-9 ]{5,15}" required></div>' +
+        '</div>' +
+        '<div class="frow">' +
+          '<div><label>Country of residence *</label><select name="country" required><option value="" disabled selected>Select country</option>' + COUNTRIES.map((c) => '<option>' + c + '</option>').join('') + '</select></div>' +
+          '<div><label>City of residence *</label><input name="city" maxlength="60" required></div>' +
+        '</div>' +
+        '<div class="frow">' +
+          '<div><label>Date of birth *</label><input name="dob" type="date" required></div>' +
+          '<div><label>Gender</label><select name="gender"><option value="" selected>&mdash;</option><option>Male</option><option>Female</option><option>Prefer not to say</option></select></div>' +
+        '</div>' +
+        '<label>Field of current occupation</label><select name="occupation"><option value="" selected>&mdash;</option>' + OCCUPATIONS.map((o) => '<option>' + o + '</option>').join('') + '</select>' +
+        '<div class="frow">' +
+          '<div><label>Religion</label><select name="religion"><option value="" selected>&mdash;</option>' + RELIGIONS.map((o) => '<option>' + o + '</option>').join('') + '</select></div>' +
+          '<div><label>Devoutness (1&ndash;10)</label><input name="devout" type="range" min="1" max="10" value="5" oninput="this.parentElement.querySelector(\'.rangeval\').textContent=this.value"><span class="rangeval">5</span></div>' +
+        '</div>' +
+        '<div class="frow">' +
+          '<div><label>X handle</label><input name="xhandle" placeholder="@handle" maxlength="30"></div>' +
+          '<div><label>LinkedIn</label><input name="linkedin" type="url" placeholder="https://linkedin.com/in/&hellip;"></div>' +
+        '</div>' +
+        '<label>Projects &amp; repositories</label>' +
+        '<div id="projrows">' +
+          '<div class="projrow"><input name="ptitle" placeholder="Project title" maxlength="60"><input name="plink" type="url" placeholder="https://&hellip;"></div>' +
+        '</div>' +
+        '<button type="button" class="addbtn" onclick="addProjRow()">+ Add another project</button>' +
+        '<div style="margin-top:2.2rem"><button type="button" id="verifybtn" onclick="verifyEmail(this.form)">Verify Email</button>' +
+        '<span class="vstatus" id="vstatus"></span></div>' +
+        '<div id="coderow" style="display:none"><label>Enter the 6-digit code from your email</label>' +
+        '<input name="vcode" maxlength="6" inputmode="numeric" pattern="[0-9]{6}" placeholder="000000" oninput="checkCode(this.form)" style="max-width:11rem"></div>' +
+        '<div id="written" style="display:none">' +
+        '<div class="prompt" style="margin-top:1.6rem">In about 300 words, describe your core entrepreneurial ethos and your approach to the future with respect to emerging technologies and global trends. There is no wrong answer.</div>' +
+        '<textarea name="ethos" required maxlength="1800" oninput="charCount(this)" style="min-height:12rem"></textarea>' +
+        '<div class="wordcount"><span>0</span> / 1800 characters</div>' +
+        '<div class="prompt" style="margin-top:1.6rem">Aeternum\'s fundamental activity orbits the release of digital applications and keeping its members informed of emerging technologies. As a builder, what will you contribute to Aeternum?</div>' +
+        '<textarea name="contribution" required maxlength="1800" oninput="charCount(this)" style="min-height:12rem"></textarea>' +
+        '<div class="wordcount"><span>0</span> / 1800 characters</div>' +
+        '<button type="submit" id="submitbtn" disabled>Submit application</button>' +
+        '</div>' +
+        '<div class="form-note">Verify your email to unlock the written section; the submit button opens once both answers are in. Every application is read.</div>' +
+        '</form>') },
+
+    { slug: 'completed-projects', name: 'Completed Projects',
+      desc: 'Work that has left the forge. Available to download or purchase.',
+      orbitals: [
+        { slug: 'all', name: 'All', html: () => projCards(allProjects('completed')) },
+        ...CATS.map((c) => ({
+          slug: c.slug, name: c.name,
+          html: () => projCards(PROJECTS.completed[c.slug]),
+        })),
+      ] },
+
+    { slug: 'inbound-projects', name: 'Inbound Projects',
+      desc: 'Work still in orbit: progress, purpose, and expected arrival.',
+      orbitals: [
+        { slug: 'all', name: 'All', html: () => projCards(allProjects('inbound')) },
+        ...CATS.map((c) => ({
+          slug: c.slug, name: c.name,
+          html: () => projCards(PROJECTS.inbound[c.slug]),
+        })),
+      ] },
+
+    { slug: 'portal', name: 'Portal',
+      desc: 'The members\' quarter: the chat and the signal. Entry by membership.',
+      orbitals: [],
+      html: () => portalMount('chat') },
+  ];
+  const N = SECTIONS.length;
+
+  const COUNTRIES = ['Afghanistan','Albania','Algeria','Andorra','Angola','Antigua and Barbuda','Argentina','Armenia','Australia','Austria','Azerbaijan','Bahamas','Bahrain','Bangladesh','Barbados','Belarus','Belgium','Belize','Benin','Bhutan','Bolivia','Bosnia and Herzegovina','Botswana','Brazil','Brunei','Bulgaria','Burkina Faso','Burundi','Cabo Verde','Cambodia','Cameroon','Canada','Central African Republic','Chad','Chile','China','Colombia','Comoros','Congo','Costa Rica','Croatia','Cuba','Cyprus','Czechia','DR Congo','Denmark','Djibouti','Dominica','Dominican Republic','Ecuador','Egypt','El Salvador','Equatorial Guinea','Eritrea','Estonia','Eswatini','Ethiopia','Fiji','Finland','France','Gabon','Gambia','Georgia','Germany','Ghana','Greece','Grenada','Guatemala','Guinea','Guinea-Bissau','Guyana','Haiti','Honduras','Hungary','Iceland','India','Indonesia','Iran','Iraq','Ireland','Israel','Italy','Ivory Coast','Jamaica','Japan','Jordan','Kazakhstan','Kenya','Kiribati','Kosovo','Kuwait','Kyrgyzstan','Laos','Latvia','Lebanon','Lesotho','Liberia','Libya','Liechtenstein','Lithuania','Luxembourg','Madagascar','Malawi','Malaysia','Maldives','Mali','Malta','Marshall Islands','Mauritania','Mauritius','Mexico','Micronesia','Moldova','Monaco','Mongolia','Montenegro','Morocco','Mozambique','Myanmar','Namibia','Nauru','Nepal','Netherlands','New Zealand','Nicaragua','Niger','Nigeria','North Korea','North Macedonia','Norway','Oman','Pakistan','Palau','Palestine','Panama','Papua New Guinea','Paraguay','Peru','Philippines','Poland','Portugal','Qatar','Romania','Russia','Rwanda','Saint Kitts and Nevis','Saint Lucia','Saint Vincent and the Grenadines','Samoa','San Marino','Sao Tome and Principe','Saudi Arabia','Senegal','Serbia','Seychelles','Sierra Leone','Singapore','Slovakia','Slovenia','Solomon Islands','Somalia','South Africa','South Korea','South Sudan','Spain','Sri Lanka','Sudan','Suriname','Sweden','Switzerland','Syria','Taiwan','Tajikistan','Tanzania','Thailand','Timor-Leste','Togo','Tonga','Trinidad and Tobago','Tunisia','Turkey','Turkmenistan','Tuvalu','Uganda','Ukraine','United Arab Emirates','United Kingdom','United States','Uruguay','Uzbekistan','Vanuatu','Vatican City','Venezuela','Vietnam','Yemen','Zambia','Zimbabwe'];
+  const OCCUPATIONS = ['Software & IT','Engineering (non-software)','Design & Creative','Product & Management','Data & AI','Science & Research','Medicine & Health','Law','Finance & Business','Marketing & Media','Education','Arts & Entertainment','Trades & Manufacturing','Hospitality & Services','Agriculture','Government & Public Service','Student','Between roles','Other'];
+  const RELIGIONS = ['Christianity','Islam','Judaism','Hinduism','Buddhism','Sikhism','Taoism','Shinto','Folk / Traditional','Spiritual but not religious','Agnostic','Atheist','Other','Prefer not to say'];
+
+  function addProjRow() {
+    const rows = document.getElementById('projrows');
+    if (rows.children.length >= 10) return;
+    const row = document.createElement('div');
+    row.className = 'projrow';
+    row.innerHTML = '<input name="ptitle" placeholder="Project title" maxlength="60"><input name="plink" type="url" placeholder="https://&hellip;">';
+    rows.appendChild(row);
+    if (rows.children.length >= 10) {
+      const btn = document.querySelector('.addbtn');
+      btn.disabled = true; btn.style.opacity = 0.35; btn.textContent = 'Ten projects is plenty';
+    }
+  }
+
+  // ---------------- the portal: login gate, chat, news ----------------
+  const escHtml = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  let portalMember = null;       // { handle, role } once signed in and seated
+  let chatChannel = null;
+
+  function portalMount(kind) {
+    setTimeout(() => initPortal(kind), 30);
+    return '<div id="portalmount" class="portal"><p style="font-style:italic;opacity:.55">Opening the portal&hellip;</p></div>';
+  }
+
+  async function initPortal(kind) {
+    const mount = document.getElementById('portalmount');
+    if (!mount) return;
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { renderPortalLogin(mount, kind); return; }
+    if (!portalMember) {
+      const { data } = await sb.from('members').select('handle, role').eq('user_id', session.user.id).maybeSingle();
+      portalMember = data || undefined;   // undefined = signed in, not seated
+    }
+    if (!portalMember) {
+      mount.innerHTML =
+        '<p>Signed in as ' + escHtml(session.user.email) + ', but this email holds no membership yet.</p>' +
+        '<p style="font-style:italic;opacity:.6">Membership comes by application. The Apply satellite is open.</p>' +
+        '<button class="psignout" onclick="portalSignOut(\'' + kind + '\')">Sign out</button>';
+      return;
+    }
+    renderChat(mount);
+  }
+
+  function renderPortalLogin(mount, kind) {
+    mount.innerHTML =
+      '<div class="portal-login">' +
+      '<p style="font-style:italic;opacity:.7;margin-bottom:1.2rem">The portal opens for members. Sign in with the email your membership carries.</p>' +
+      '<input id="pmail" type="email" placeholder="you@example.com">' +
+      '<div id="pcoderow" style="display:none;margin-top:0.8rem"><input id="pcode" maxlength="6" inputmode="numeric" placeholder="6-digit code"></div>' +
+      '<button class="pbtn" id="pgo" onclick="portalAuth(\'' + kind + '\')">Send code</button>' +
+      '<div class="pstatus" id="pstatus"></div></div>';
+  }
+
+  async function portalAuth(kind) {
+    const mail = document.getElementById('pmail').value.trim();
+    const codeRow = document.getElementById('pcoderow');
+    const status = document.getElementById('pstatus');
+    const go = document.getElementById('pgo');
+    if (codeRow.style.display === 'none') {
+      if (!mail || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail)) { status.textContent = 'That email does not look complete.'; return; }
+      go.disabled = true; go.textContent = 'Sending…';
+      const { error } = await sb.auth.signInWithOtp({ email: mail, options: { shouldCreateUser: false } });
+      go.disabled = false;
+      if (error) { go.textContent = 'Send code'; status.textContent = 'Could not send the code — ' + error.message; return; }
+      codeRow.style.display = '';
+      go.textContent = 'Enter';
+      status.textContent = 'A 6-digit code is on its way to ' + mail + '.';
+    } else {
+      const code = document.getElementById('pcode').value.trim();
+      if (code.length !== 6) { status.textContent = 'The code is 6 digits.'; return; }
+      go.disabled = true; go.textContent = 'Checking…';
+      const { error } = await sb.auth.verifyOtp({ email: mail, token: code, type: 'email' });
+      go.disabled = false;
+      if (error) { go.textContent = 'Enter'; status.textContent = 'That code did not match — try again.'; return; }
+      portalMember = null;
+      initPortal(kind);
+    }
+  }
+
+  async function portalSignOut(kind) {
+    await sb.auth.signOut();
+    portalMember = null;
+    if (chatChannel) { sb.removeChannel(chatChannel); chatChannel = null; }
+    initPortal(kind);
+  }
+
+  // ----- chat -----
+  const roleRank = { member: 0, executive: 1, director: 2 };
+  const canModerate = () => portalMember && roleRank[portalMember.role] >= 1;
+  const roleBadge = (role) => '<span class="rb ' + role + '"><span class="rb-orb"><i></i></span>' + role + '</span>';
+
+  function msgHtml(m) {
+    if (m.deleted) return '';
+    const when = new Date(m.created_at).toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+    return '<div class="msg" data-id="' + m.id + '"><div class="m-h">' +
+      '<span class="m-handle">' + escHtml(m.handle) + '</span>' +
+      roleBadge(m.role) +
+      '<span class="m-time">' + when + '</span>' +
+      (canModerate() ? '<button class="m-act" onclick="pinMsg(\'' + m.id + '\',' + !m.pinned + ')">' + (m.pinned ? 'unpin' : 'pin') + '</button>' : '') +
+      (canModerate() || m.user_id === portalUserId ? '<button class="m-act" onclick="delMsg(\'' + m.id + '\')">remove</button>' : '') +
+      '</div><div class="m-text">' + escHtml(m.text) + '</div></div>';
+  }
+
+  let portalUserId = null;
+  let chatMsgs = [];
+
+  // the Teams-shaped shell: left rail, header, body, and (for chat) a docked composer
+  function dashShell(kind) {
+    return '<div class="dash">' +
+      '<div class="dash-side">' +
+        '<div class="dash-brand">Aeternum</div>' +
+        '<div class="dash-nav" id="railnav">' +
+          '<button class="' + (kind === 'chat' ? 'active' : '') + '" onclick="location.hash=\'#/portal/chat\'">Chat</button>' +
+          '<button class="' + (kind === 'news' ? 'active' : '') + '" onclick="location.hash=\'#/portal/news\'">News Feed</button>' +
+        '</div>' +
+        '<div class="dash-user">' +
+          '<div class="du-h">' + escHtml(portalMember.handle) + '</div>' +
+          '<div>' + roleBadge(portalMember.role) + '</div>' +
+          '<div><button class="psignout" style="margin:0.7rem 0 0" onclick="portalSignOut(\'' + kind + '\')">Sign out</button></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="dash-main">' +
+        '<div class="dash-head"><span id="dashhead">' + (kind === 'chat' ? 'Chat' : 'News Feed') + '</span>' +
+        '<button class="dash-close" onclick="location.hash=\'\'" title="Exit the portal">&times;</button></div>' +
+        '<div class="dash-body" id="dashbody"></div>' +
+        (kind === 'chat'
+          ? '<div class="dash-foot"><input id="chattext" maxlength="2000" placeholder="Speak to the collective" onkeydown="if(event.key===\'Enter\')sendMsg()"><button class="pbtn" onclick="sendMsg()">Send</button></div>'
+          : '') +
+      '</div></div>';
+  }
+
+  // ----- rooms: All, Director + Execs, customs, and 1-to-1s -----
+  let rooms = [], people = [], roomPeeps = {}, currentRoom = null, dashView = 'chat';
+  const isDirector = () => portalMember && portalMember.role === 'director';
+
+  function roomLabel(r) {
+    if (r.kind === 'all') return 'All';
+    if (r.kind === 'officers') return 'Director and Executives';
+    if (r.kind === 'custom') return r.name || 'Unnamed chat';
+    const other = (roomPeeps[r.id] || []).find((u) => u !== portalUserId);
+    const p = people.find((x) => x.user_id === other);
+    return p ? p.handle : 'Direct chat';
+  }
+
+  async function renderChat(mount) {
+    const { data: { session } } = await sb.auth.getSession();
+    portalUserId = session.user.id;
+    mount.innerHTML = dashShell('chat');
+    const [mems, rms, peeps] = await Promise.all([
+      sb.from('members').select('user_id, handle, role'),
+      sb.from('rooms').select('*'),
+      sb.from('room_members').select('room_id, user_id'),
+    ]);
+    people = mems.data || [];
+    rooms = rms.data || [];
+    roomPeeps = {};
+    (peeps.data || []).forEach((x) => { (roomPeeps[x.room_id] = roomPeeps[x.room_id] || []).push(x.user_id); });
+    buildRail();
+    const home = rooms.find((r) => r.kind === 'all');
+    if (home) openRoom(home.id);
+    else document.getElementById('dashbody').innerHTML = '<p style="opacity:.5;font-style:italic">The chamber is unreachable — run the rooms migration.</p>';
+    if (chatChannel) sb.removeChannel(chatChannel);
+    chatChannel = sb.channel('chamber')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, (payload) => {
+        if (!currentRoom || payload.new.room_id !== currentRoom.id) return;
+        if (payload.eventType === 'INSERT') { if (chatMsgs.some((m) => m.id === payload.new.id)) return; chatMsgs.push(payload.new); }
+        else if (payload.eventType === 'UPDATE') chatMsgs = chatMsgs.map((m) => (m.id === payload.new.id ? payload.new : m));
+        paintChat();
+      })
+      .subscribe();
+  }
+
+  function buildRail() {
+    const inRoom = (r) => (roomPeeps[r.id] || []).includes(portalUserId) || r.created_by === portalUserId;
+    const rBtn = (r) => '<button class="sub' + (currentRoom && currentRoom.id === r.id ? ' active' : '') + '" onclick="openRoom(\'' + r.id + '\')">' + escHtml(roomLabel(r)) + '</button>';
+    const pBtn = (p) => '<button class="sub" onclick="openDm(\'' + p.user_id + '\')"><span class="pdot ' + p.role + '"></span>' + escHtml(p.handle) + '</button>';
+    const grp = (title, body, closed) => body
+      ? '<div class="grp' + (closed ? ' closed' : '') + '"><div class="grp-h" onclick="this.parentElement.classList.toggle(\'closed\')"><span>' + title + '</span><span>&#9662;</span></div><div class="grp-b">' + body + '</div></div>'
+      : '';
+    const officers = roleRank[portalMember.role] >= 1;
+    const channels =
+      rooms.filter((r) => r.kind === 'all').map(rBtn).join('') +
+      (officers ? rooms.filter((r) => r.kind === 'officers').map(rBtn).join('') : '') +
+      rooms.filter((r) => r.kind === 'custom' && inRoom(r)).map(rBtn).join('') +
+      '<button class="sub" onclick="newChatForm()">+ New chat</button>';
+    const byRole = { director: [], executive: [], member: [] };
+    people.forEach((p) => { if (p.user_id !== portalUserId) byRole[p.role].push(p); });
+    let rail =
+      '<button class="' + (dashView === 'news' ? 'active' : '') + '" onclick="openNews()">News Feed</button>' +
+      grp('Channels', channels) +
+      grp('Director', byRole.director.map(pBtn).join('')) +
+      grp('Executives', byRole.executive.map(pBtn).join('')) +
+      grp('Members', byRole.member.map(pBtn).join(''));
+    if (isDirector()) {
+      const unseen = rooms.filter((r) => (r.kind === 'custom' || r.kind === 'dm') && !inRoom(r));
+      rail += grp('Oversight', unseen.map(rBtn).join(''), true);
+    }
+    document.getElementById('railnav').innerHTML = rail;
+  }
+
+  async function openRoom(id) {
+    currentRoom = rooms.find((r) => r.id === id);
+    if (!currentRoom) return;
+    dashView = 'chat';
+    const foot = document.querySelector('.dash-foot');
+    if (foot) foot.style.display = '';
+    document.getElementById('dashhead').textContent = roomLabel(currentRoom);
+    document.getElementById('dashbody').innerHTML = '<div id="pinnedbox"></div><div class="chat-log" id="chatlog"></div>';
+    buildRail();
+    const { data, error } = await sb.from('messages').select('*').eq('room_id', id).order('created_at', { ascending: true }).limit(200);
+    if (error) { document.getElementById('chatlog').innerHTML = '<p style="opacity:.5;font-style:italic">Unreachable — ' + escHtml(error.message) + '</p>'; return; }
+    chatMsgs = data || [];
+    paintChat();
+  }
+
+  async function openDm(uid) {
+    const key = [portalUserId, uid].sort().join(':');
+    let room = rooms.find((r) => r.dm_key === key);
+    if (!room) {
+      const { data, error } = await sb.from('rooms').insert({ kind: 'dm', dm_key: key, created_by: portalUserId }).select().single();
+      if (error) { alert('Could not open the chat — ' + error.message); return; }
+      room = data;
+      await sb.from('room_members').insert([{ room_id: room.id, user_id: portalUserId }, { room_id: room.id, user_id: uid }]);
+      rooms.push(room);
+      roomPeeps[room.id] = [portalUserId, uid];
+    }
+    openRoom(room.id);
+  }
+
+  function newChatForm() {
+    currentRoom = null;
+    document.getElementById('dashhead').textContent = 'New chat';
+    document.getElementById('dashbody').innerHTML =
+      '<div class="newchat-form portal" style="max-width:26rem">' +
+      '<label>Chat name</label><input id="ncname" maxlength="40" placeholder="Name the room">' +
+      '<label>Bring in</label>' +
+      people.filter((p) => p.user_id !== portalUserId).map((p) =>
+        '<label class="pick"><input type="checkbox" value="' + p.user_id + '"><span class="pdot ' + p.role + '"></span>' + escHtml(p.handle) + '</label>').join('') +
+      '<button class="pbtn" style="margin-top:1.4rem" onclick="createCustom()">Create</button></div>';
+    buildRail();
+  }
+
+  async function createCustom() {
+    const name = document.getElementById('ncname').value.trim();
+    if (!name) return;
+    const picked = [...document.querySelectorAll('.newchat-form input[type=checkbox]:checked')].map((c) => c.value);
+    const { data, error } = await sb.from('rooms').insert({ kind: 'custom', name, created_by: portalUserId }).select().single();
+    if (error) { alert('Could not create the chat — ' + error.message); return; }
+    const seats = [portalUserId, ...picked].map((u) => ({ room_id: data.id, user_id: u }));
+    await sb.from('room_members').insert(seats);
+    rooms.push(data);
+    roomPeeps[data.id] = seats.map((s) => s.user_id);
+    openRoom(data.id);
+  }
+
+  function paintChat() {
+    const log = document.getElementById('chatlog'), pin = document.getElementById('pinnedbox');
+    if (!log) return;
+    const pinned = chatMsgs.filter((m) => m.pinned && !m.deleted);
+    pin.innerHTML = pinned.length
+      ? '<div class="chat-pinned">' + pinned.map((m) => '<div><strong style="letter-spacing:.1em">' + escHtml(m.handle) + '</strong> — ' + escHtml(m.text) + '</div>').join('') + '</div>'
+      : '';
+    log.innerHTML = chatMsgs.map(msgHtml).join('') || '<p style="opacity:.5;font-style:italic">The chamber is quiet. Say the first word.</p>';
+    log.scrollTop = log.scrollHeight;
+  }
+
+  async function sendMsg() {
+    const inp = document.getElementById('chattext');
+    const text = inp.value.trim();
+    if (!text || !currentRoom) return;
+    inp.value = '';
+    const { data, error } = await sb.from('messages')
+      .insert({ user_id: portalUserId, handle: portalMember.handle, role: portalMember.role, text, room_id: currentRoom.id })
+      .select().single();
+    if (error) { inp.value = text; alert('Could not send — ' + error.message); return; }
+    // echo immediately; the realtime event becomes a dedup no-op
+    if (!chatMsgs.some((m) => m.id === data.id)) { chatMsgs.push(data); paintChat(); }
+  }
+  async function pinMsg(id, pinned) { await sb.from('messages').update({ pinned }).eq('id', id); }
+  async function delMsg(id) { await sb.from('messages').update({ deleted: true }).eq('id', id); }
+
+  // ----- news: a tab inside the same workspace, no scene shift -----
+  async function openNews() {
+    dashView = 'news'; currentRoom = null;
+    document.getElementById('dashhead').textContent = 'News Feed';
+    const foot = document.querySelector('.dash-foot');
+    if (foot) foot.style.display = 'none';
+    document.getElementById('dashbody').innerHTML = '<div id="newslist"><p style="opacity:.5;font-style:italic">Listening for the signal&hellip;</p></div>';
+    buildRail();
+    const { data, error } = await sb.from('news_items').select('*').order('created_at', { ascending: false }).limit(50);
+    const list = document.getElementById('newslist');
+    if (!list) return;
+    if (error) { list.innerHTML = '<p style="opacity:.5;font-style:italic">The signal is unreachable — ' + escHtml(error.message) + '</p>'; return; }
+    list.innerHTML = (data && data.length)
+      ? data.map((n) =>
+          '<div class="news-item"><div class="n-title">' + (n.url ? '<a href="' + escHtml(n.url) + '" target="_blank" rel="noopener">' + escHtml(n.title) + '</a>' : escHtml(n.title)) + '</div>' +
+          '<div class="n-meta">' + new Date(n.created_at).toLocaleDateString([], { day: 'numeric', month: 'short' }) + (n.source ? ' &middot; ' + escHtml(n.source) : '') + '</div>' +
+          '<div class="n-summary">' + escHtml(n.summary) + '</div>' +
+          (n.why ? '<div class="n-why">Why it matters to Aeternum: ' + escHtml(n.why) + '</div>' : '') + '</div>').join('')
+      : '<p style="opacity:.5;font-style:italic">The signal is quiet. The first briefing will land here.</p>';
+  }
+
+  function charCount(el) {
+    el.nextElementSibling.querySelector('span').textContent = el.value.length;
+    updateSubmit(el.form);
+  }
+
+  // --- Supabase backend ---
+  const sb = window.supabase.createClient(
+    'https://yufnclufemzecyenxouz.supabase.co',
+    'sb_publishable_A9axRYo9--rtkGdaUU1DrA_B1k3ji5v'
+  );
+
+  // --- stage gate: stage one ends at Verify Email. A real 6-digit code is
+  // emailed via Supabase Auth OTP; entering it unveils stage two. ---
+  let emailVerified = false;
+  async function verifyEmail(f) {
+    const em = f.elements.email;
+    if (!em.value || !em.checkValidity()) { em.reportValidity(); return; }
+    const btn = document.getElementById('verifybtn');
+    btn.disabled = true; btn.textContent = 'Sending code…';
+    const { error } = await sb.auth.signInWithOtp({ email: em.value });
+    if (error) {
+      btn.disabled = false; btn.textContent = 'Verify Email';
+      document.getElementById('vstatus').textContent = 'Could not send the code — ' + error.message;
+      return;
+    }
+    btn.disabled = false; btn.textContent = 'Resend code';
+    document.getElementById('coderow').style.display = '';
+    document.getElementById('vstatus').textContent = 'A 6-digit code is on its way to ' + em.value + '.';
+  }
+  async function checkCode(f) {
+    const code = f.elements.vcode.value.trim();
+    if (emailVerified || code.length !== 6) return;
+    document.getElementById('vstatus').textContent = 'Checking…';
+    const { error } = await sb.auth.verifyOtp({ email: f.elements.email.value, token: code, type: 'email' });
+    if (error) {
+      document.getElementById('vstatus').textContent = 'That code did not match — try again, or resend.';
+      return;
+    }
+    emailVerified = true;
+    const btn = document.getElementById('verifybtn');
+    btn.disabled = true; btn.textContent = 'Email verified';
+    document.getElementById('coderow').style.display = 'none';
+    document.getElementById('vstatus').textContent = '';
+    const w = document.getElementById('written');
+    w.style.display = '';
+    w.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    updateSubmit(f);
+  }
+  function emailChanged(f) {
+    if (!emailVerified && document.getElementById('coderow').style.display === 'none') return;
+    emailVerified = false;
+    const btn = document.getElementById('verifybtn');
+    btn.disabled = false; btn.textContent = 'Verify Email';
+    document.getElementById('coderow').style.display = 'none';
+    f.elements.vcode.value = '';
+    document.getElementById('written').style.display = 'none';
+    document.getElementById('vstatus').textContent = 'Email changed — verify again.';
+    updateSubmit(f);
+  }
+  function updateSubmit(f) {
+    const btn = document.getElementById('submitbtn');
+    if (!btn) return;
+    btn.disabled = !(emailVerified &&
+      f.elements.ethos.value.trim().length > 0 &&
+      f.elements.contribution.value.trim().length > 0);
+  }
+
+  function sendApplication(f) { submitApplication(f); return false; }
+  async function submitApplication(f) {
+    const v = (n) => (f.elements[n] ? f.elements[n].value : '');
+    const projects = [...f.querySelectorAll('.projrow')]
+      .map((r) => ({ title: r.children[0].value.trim(), link: r.children[1].value.trim() }))
+      .filter((p) => p.title || p.link);
+    const btn = document.getElementById('submitbtn');
+    btn.disabled = true; btn.textContent = 'Submitting…';
+    const { error } = await sb.from('applications').insert({
+      first_name: v('first'),
+      middle_names: v('middle') || null,
+      last_name: v('last'),
+      email: v('email'),
+      phone: (v('cc') + ' ' + v('phone')).trim(),
+      country: v('country'),
+      city: v('city'),
+      dob: v('dob'),
+      gender: v('gender') || null,
+      occupation: v('occupation') || null,
+      religion: v('religion') || null,
+      devoutness: v('religion') ? Number(v('devout')) : null,
+      x_handle: v('xhandle') || null,
+      linkedin: v('linkedin') || null,
+      projects: projects.length ? projects : null,
+      ethos: v('ethos'),
+      contribution: v('contribution'),
+    });
+    if (error) {
+      btn.disabled = false; btn.textContent = 'Submit application';
+      document.getElementById('vstatus').textContent = 'Submission failed — ' + error.message;
+      return;
+    }
+    const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    f.parentElement.innerHTML =
+      '<div class="stamp"><div class="coming"><div class="c-orbits"><div></div><div></div></div>' +
+      '<div class="c-title">Application Received</div>' +
+      '<div class="c-sub">Thank you, ' + esc(v('first')) + '. Every application is read. The collective will reach out to ' + esc(v('email')) + '.</div>' +
+      '</div></div>';
+    pageEl.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // ---------------- scene ----------------
   const scene = document.getElementById('scene');
   const frontName = document.querySelector('#front-desc .name');
   const frontDesc = document.querySelector('#front-desc .desc');
   const frontBox = document.getElementById('front-desc');
   const wordmark = document.querySelector('.wordmark');
   const tagline = document.querySelector('.tagline');
+  const subWordmark = document.querySelector('.subwordmark');
+  const subTagline = document.querySelector('.subtagline');
   const scrimEl = document.querySelector('.scrim');
   const hintEl = document.querySelector('.hint');
   const pageEl = document.getElementById('page');
   const darkenEl = document.getElementById('darken');
+  const blackoutEl = document.getElementById('blackout');
   const ringzoneEl = document.getElementById('ringzone');
-  ringzoneEl.addEventListener('click', () => { location.hash = ''; });
+
+  // background drifters: tiny aeternum emblems crossing the deep at their own pace
+  const driftLayer = document.getElementById('driftlayer');
+  const DRIFTERS = Array.from({ length: 18 }, () => {
+    const el = document.createElement('div'); el.className = 'drift';
+    el.innerHTML = '<div></div><div></div>';
+    el.style.setProperty('--dur', (6 + Math.random() * 8).toFixed(1) + 's');
+    el.style.setProperty('--del', (-Math.random() * 10).toFixed(1) + 's');
+    driftLayer.appendChild(el);
+    const w = 14 + Math.random() * 46;                    // 14px to 60px wide
+    return {
+      el, w,
+      x: Math.random() * innerWidth,
+      y: Math.random() * innerHeight,
+      speed: 0.12 + Math.random() * 0.44,                 // px per frame, rightward
+      o: 0.32 + (w / 60) * 0.6,                           // bigger = brighter
+    };
+  });
 
   const ring = document.createElement('div'); ring.className = 'ring'; scene.appendChild(ring);
   const ring2 = document.createElement('div'); ring2.className = 'ring2'; scene.appendChild(ring2);
+  const subRing = document.createElement('div'); subRing.className = 'subring'; scene.appendChild(subRing);
+  const subRing2 = document.createElement('div'); subRing2.className = 'subring2'; scene.appendChild(subRing2);
 
-  const nodes = BRANCHES.map((b, i) => {
+  const nodes = SECTIONS.map((s, i) => {
     const el = document.createElement('div'); el.className = 'node';
-    el.innerHTML = '<div class="dot"></div><div class="label">' + b.name + '</div>';
+    el.innerHTML = '<div class="dot"></div><div class="label">' + s.name + '</div>';
     el.addEventListener('click', () => {
       if (dragMoved) return;
-      if (zoomTarget === 1) { if (i === currentIdx) location.hash = ''; }
-      else location.hash = '#/' + b.slug;
+      if (zoomTarget === 1) { if (i === currentIdx && subZoomTarget === 0) location.hash = ''; }
+      else location.hash = '#/' + s.slug;
     });
     scene.appendChild(el);
     return el;
   });
 
-  // ---------- state ----------
-  let rot = 0;
-  let vel = 0.0022, targetVel = 0.0022;
-  let zoom = 0, zoomTarget = 0;        // 0 = home ring, 1 = branch page
-  let rotTarget = 0;                    // rot to settle at when zoomed
-  let currentIdx = -1;
+  // the satellite's own orbital nodes; rebuilt whenever the hub section changes
+  let subNodes = [], subSectionIdx = -1;
+  function buildSubNodes(i) {
+    if (subSectionIdx === i) return;
+    subSectionIdx = i;
+    for (const el of subNodes) el.remove();
+    const s = SECTIONS[i];
+    subNodes = s.orbitals.map((o, j) => {
+      const el = document.createElement('div'); el.className = 'node subnode';
+      el.innerHTML = '<div class="dot"></div><div class="label">' + o.name + '</div>';
+      el.addEventListener('click', () => {
+        if (dragMoved) return;
+        if (subZoomTarget === 1) { if (j === currentOrbIdx) location.hash = '#/' + s.slug; }
+        else location.hash = '#/' + s.slug + '/' + o.slug;
+      });
+      scene.appendChild(el);
+      return el;
+    });
+  }
+
+  // ---------------- state ----------------
+  // arrival: 1 = far out and spinning, 0 = landed. Deep links skip the fall.
+  let intro = location.hash.length > 1 ? 0 : 1;
+  let rot = 0, vel = 0.0022, targetVel = 0.0022;
+  let zoom = 0, zoomTarget = 0, rotTarget = 0;
+  let subRot = 0, subVel = 0.0032;
+  let subZoom = 0, subZoomTarget = 0, subRotTarget = 0;
+  let subIntro = 0;   // the hub's own arrival fall, played once the dive completes
+  // after a hand has turned a ring, its own motion stays blocked for 7 seconds
+  const SPIN_HOLD_MS = 7000;
+  let lastSpinMain = -Infinity, lastSpinSub = -Infinity;
+  // rule: a title may only begin appearing after its ring has fully landed
+  let wmA = location.hash.length > 1 ? 1 : 0;   // home wordmark gate
+  let subWmA = 0;                               // hub wordmark gate
+  let currentIdx = -1, currentOrbIdx = -1;
   let swayPhase = 0;
   const TILT = 0.30;
   const RING_TILT_DEG = -6;
 
   const lerp = (a, b, t) => a + (b - a) * t;
+  const hasOrbitals = () => currentIdx >= 0 && SECTIONS[currentIdx].orbitals.length > 0;
 
   function project(angle, R, cx, cy, leanDeg) {
     const x0 = Math.cos(angle) * R;
@@ -272,35 +1342,45 @@
     return { x: cx + x, y: cy + y, depth };
   }
 
-  let W, H, RHOME, RPAGE, CX, CYHOME, CYPAGE;
+  let W, H, RHOME, RPAGE, RSUB, CX, CYHOME, CYPAGE, CYSUB;
   function layout() {
     W = innerWidth || document.documentElement.clientWidth || 1280;
     H = innerHeight || document.documentElement.clientHeight || 800;
     RHOME = Math.max(140, Math.min(W / 2 - 45, 780));
     RPAGE = Math.min(Math.max(W * 0.62, 520), 950);
+    RSUB = Math.max(120, Math.min(W / 2 - 85, 560));
     CX = W / 2;
-    CYHOME = H * 0.55;
-    CYPAGE = H * 0.16 - RPAGE * TILT;   // bottom arc of the giant ring sweeps the top of the page
+    CYHOME = H * 0.44;   // ring centre lifted 20% (was 0.55)
+    CYPAGE = H * 0.16 - RPAGE * TILT;
+    CYSUB = H * 0.60;
     document.documentElement.style.setProperty('--label-size', Math.max(0.58, Math.min(1, RHOME / 300)) + 'rem');
   }
   addEventListener('resize', layout); layout();
 
-  // ---------- navigation ----------
-  function renderPage(i) {
-    const b = BRANCHES[i];
-    pageEl.querySelector('h1').textContent = b.name;
-    pageEl.querySelector('.page-lede').textContent = b.desc;
-    pageEl.querySelector('.page-body').innerHTML = b.body.map((p) => '<p>' + p + '</p>').join('');
-    // on the arc, the (i+1) neighbour sits to the LEFT of the front node, (i-1) to the right
-    const leftB = BRANCHES[(i + 1) % N], rightB = BRANCHES[(i + N - 1) % N];
+  // ---------------- routing & page rendering ----------------
+  function renderPage(i, orbIdx) {
+    const s = SECTIONS[i];
+    const orb = orbIdx >= 0 ? s.orbitals[orbIdx] : null;
+    pageEl.querySelector('h1').textContent = orb ? orb.name : s.name;
+    pageEl.querySelector('.page-lede').textContent = orb ? s.desc : s.desc;
+    pageEl.querySelector('.page-body').innerHTML = orb ? orb.html() : s.html();
+
     const pa = pageEl.querySelector('.prev'), na = pageEl.querySelector('.next');
-    pa.textContent = '← ' + leftB.name; pa.href = '#/' + leftB.slug;
-    na.textContent = rightB.name + ' →'; na.href = '#/' + rightB.slug;
+    if (orb) {
+      // siblings on the sub-ring: (j+1) sits to the LEFT of the front node, (j-1) to the right
+      const M = s.orbitals.length;
+      const leftO = s.orbitals[(orbIdx + 1) % M], rightO = s.orbitals[(orbIdx + M - 1) % M];
+      pa.textContent = '← ' + leftO.name; pa.href = '#/' + s.slug + '/' + leftO.slug;
+      na.textContent = rightO.name + ' →'; na.href = '#/' + s.slug + '/' + rightO.slug;
+    } else {
+      const leftB = SECTIONS[(i + 1) % N], rightB = SECTIONS[(i + N - 1) % N];
+      pa.textContent = '← ' + leftB.name; pa.href = '#/' + leftB.slug;
+      na.textContent = rightB.name + ' →'; na.href = '#/' + rightB.slug;
+    }
     pageEl.scrollTop = 0;
   }
 
   function nearestAngle(from, to) {
-    // shift `to` by whole turns so the travel from `from` is shortest
     const TAU = Math.PI * 2;
     let d = (to - from) % TAU;
     if (d > Math.PI) d -= TAU;
@@ -309,51 +1389,101 @@
   }
 
   function applyRoute() {
-    const slug = location.hash.replace(/^#\/?/, '');
-    const i = BRANCHES.findIndex((b) => b.slug === slug);
-    if (i >= 0) {
-      currentIdx = i;
-      renderPage(i);
-      zoomTarget = 1;
-      // node i front-and-centre: its angle must equal PI/2
-      rotTarget = nearestAngle(rot, Math.PI / 2 - (i / N) * Math.PI * 2 - Math.PI / 2);
-      document.body.classList.add('paged');
-    } else {
-      zoomTarget = 0;
+    const m = location.hash.match(/^#\/?([^/]*)(?:\/([^/]+))?/);
+    const slug = m ? m[1] : '', orbSlug = m ? m[2] : null;
+    const i = SECTIONS.findIndex((s) => s.slug === slug);
+    if (i < 0) {
+      currentIdx = -1; currentOrbIdx = -1;
+      zoomTarget = 0; subZoomTarget = 0;
       document.body.classList.remove('paged');
+      return;
+    }
+    const s = SECTIONS[i];
+    const prevIdx = currentIdx;
+    currentIdx = i;
+    zoomTarget = 1;
+    rotTarget = nearestAngle(rot, Math.PI / 2 - (i / N) * Math.PI * 2 - Math.PI / 2);
+    document.body.classList.add('paged');
+
+    if (s.orbitals.length) {
+      buildSubNodes(i);
+      subWordmark.textContent = s.name;
+      subTagline.textContent = s.desc;
+      const j = orbSlug ? s.orbitals.findIndex((o) => o.slug === orbSlug) : -1;
+      if (j >= 0) {
+        currentOrbIdx = j;
+        renderPage(i, j);
+        subZoomTarget = 1;
+        subRotTarget = nearestAngle(subRot, Math.PI / 2 - (j / s.orbitals.length) * Math.PI * 2 - Math.PI / 2);
+      } else {
+        currentOrbIdx = -1;
+        subZoomTarget = 0;
+        // arriving at the hub from outside: its ring falls in like the landing page
+        if (zoom < 0.5 || prevIdx !== i) { subIntro = 1; subWmA = 0; }
+      }
+    } else {
+      currentOrbIdx = -1;
+      subZoomTarget = 0;
+      renderPage(i, -1);
     }
   }
   addEventListener('hashchange', applyRoute);
 
-  // ---------- main loop ----------
+  // the arc overhead always climbs one level: orbital page -> hub -> home
+  ringzoneEl.addEventListener('click', () => {
+    if (subZoomTarget === 1 && currentIdx >= 0) location.hash = '#/' + SECTIONS[currentIdx].slug;
+    else location.hash = '';
+  });
+
+  // ---------------- main loop ----------------
   function frame() {
     swayPhase += 0.008;
+    // the fall: revolve fast while distant, slow as we land
+    if (intro > 0.001) { rot += 0.16 * intro * intro; intro += (0 - intro) * 0.02; }
+    else intro = 0;
+    // the hub's fall waits for the dive to finish, then revolves in the same way
+    if (subIntro > 0.001) {
+      if (zoomTarget === 1 && zoom > 0.96) { subRot += 0.16 * subIntro * subIntro; subIntro += (0 - subIntro) * 0.02; }
+    } else subIntro = 0;
     zoom += (zoomTarget - zoom) * 0.055;
     if (Math.abs(zoomTarget - zoom) < 0.001) zoom = zoomTarget;
-    const e = zoom;
+    subZoom += (subZoomTarget - subZoom) * 0.055;
+    if (Math.abs(subZoomTarget - subZoom) < 0.001) subZoom = subZoomTarget;
+    const e = zoom, se = subZoom;
 
-    if (zoomTarget === 1) {
-      rot += (rotTarget - rot) * 0.055;
-    } else {
-      rot += vel;
-      vel += (targetVel - vel) * 0.04;
+    if (zoomTarget === 1) rot += (rotTarget - rot) * 0.055;
+    else {
+      // idle drift resumes only once the post-interaction hold has expired
+      const idleT = (Date.now() - lastSpinMain < SPIN_HOLD_MS) ? 0 : Math.sign(targetVel || 1) * 0.0022;
+      rot += vel; vel += (idleT - vel) * 0.04;
     }
-    // when zoomed, keep the arc gently orbiting underfoot
-    const rotShown = rot + e * 0.045 * Math.sin(swayPhase * 0.35);
+    if (subZoomTarget === 1) subRot += (subRotTarget - subRot) * 0.055;
+    else if (Date.now() - lastSpinSub >= SPIN_HOLD_MS) subRot += subVel;
 
-    const R = lerp(RHOME, RPAGE, e);
+    const rotShown = rot + e * 0.045 * Math.sin(swayPhase * 0.35);
+    // exits via the arc are only offered at the top of the page scroll —
+    // a mid-form click must never throw the visitor out
+    const atTop = pageEl.scrollTop < 40;
+    const subRotShown = subRot + se * 0.045 * Math.sin(swayPhase * 0.3 + 1);
+
+    const sway = Math.sin(swayPhase * 0.55);
+    const orbital = hasOrbitals();
+
+    // ----- main ring: home orbit -> overhead arc; recedes while an orbital page is open
+    const R = lerp(RHOME, RPAGE, e) * (1 - 0.88 * intro);
     const CY = lerp(CYHOME, CYPAGE, e);
     const swayAmp = lerp(17, 3, e);
-    const sway = Math.sin(swayPhase * 0.55);
     const lean1 = RING_TILT_DEG + swayAmp * sway;
     const lean2 = RING_TILT_DEG - swayAmp * sway;
+    const mainA = 1 - Math.min(1, se / 0.35);   // fully gone before the orbital page arrives
 
     const minor = 2 * R * TILT;
-    for (const [el, m, lean] of [[ring, 1, lean1], [ring2, 1.01, lean2]]) {
-      el.style.width = (2 * R * m) + 'px';
-      el.style.height = (minor * m) + 'px';
+    for (const [el, m2, lean] of [[ring, 1, lean1], [ring2, 1.01, lean2]]) {
+      el.style.width = (2 * R * m2) + 'px';
+      el.style.height = (minor * m2) + 'px';
       el.style.top = CY + 'px';
       el.style.transform = 'translate(-50%,-50%) rotate(' + lean + 'deg)';
+      el.style.opacity = mainA;
     }
 
     let best = -1, bestDepth = -1;
@@ -361,45 +1491,112 @@
       const a = rotShown + (i / N) * Math.PI * 2 + Math.PI / 2;
       const p = project(a, R, CX, CY, lean1);
       const el = nodes[i];
-      const s = (0.55 + p.depth * 0.75) * (1 + 0.35 * e);
-      el.style.transform = 'translate(-50%,-50%) translate(' + p.x + 'px,' + p.y + 'px) scale(' + s + ')';
-      el.style.opacity = (0.18 + p.depth * 0.82) * (e > 0 && i === currentIdx ? 1 : 1 - 0.25 * e);
+      const sc = (0.55 + p.depth * 0.75) * (1 + 0.35 * e);
+      el.style.transform = 'translate(-50%,-50%) translate(' + p.x + 'px,' + p.y + 'px) scale(' + sc + ')';
+      el.style.opacity = ((0.18 + p.depth * 0.82) * (e > 0 && i === currentIdx ? 1 : 1 - 0.25 * e)) * mainA;
       el.style.zIndex = p.depth > 0.5 ? 40 : 10;
       el.style.filter = 'blur(' + (1.6 * (1 - p.depth)) + 'px)';
+      el.style.pointerEvents = (mainA > 0.5 && (zoomTarget === 0 || atTop)) ? 'auto' : 'none';
       if (p.depth > bestDepth) { bestDepth = p.depth; best = i; }
     }
 
+    // ----- sub ring: satellite hub orbit -> overhead arc on an orbital page
+    // hidden until the dive completes, then falls in (tiny -> full) like the landing page
+    const subA = ((e > 0.96 || subIntro < 1) ? 1 : 0) * e * (orbital ? 1 : 0);
+    const SR = lerp(RSUB, RPAGE, se) * (1 - 0.88 * subIntro);
+    const SCY = lerp(CYSUB, CYPAGE, se);
+    const subSwayAmp = lerp(10, 3, se);
+    const slean1 = RING_TILT_DEG + subSwayAmp * Math.sin(swayPhase * 0.5 + 0.7);
+    const slean2 = RING_TILT_DEG - subSwayAmp * Math.sin(swayPhase * 0.5 + 0.7);
+    const sminor = 2 * SR * TILT;
+    for (const [el, m2, lean] of [[subRing, 1, slean1], [subRing2, 1.012, slean2]]) {
+      el.style.width = (2 * SR * m2) + 'px';
+      el.style.height = (sminor * m2) + 'px';
+      el.style.top = SCY + 'px';
+      el.style.transform = 'translate(-50%,-50%) rotate(' + lean + 'deg)';
+      el.style.opacity = subA;
+    }
+    if (orbital && subNodes.length) {
+      const M = subNodes.length;
+      for (let j = 0; j < M; j++) {
+        const a = subRotShown + (j / M) * Math.PI * 2 + Math.PI / 2;
+        const p = project(a, SR, CX, SCY, slean1);
+        const el = subNodes[j];
+        const sc = (0.55 + p.depth * 0.75) * (1 + 0.35 * se);
+        el.style.transform = 'translate(-50%,-50%) translate(' + p.x + 'px,' + p.y + 'px) scale(' + sc + ')';
+        el.style.opacity = ((0.18 + p.depth * 0.82) * (se > 0 && j === currentOrbIdx ? 1 : 1 - 0.25 * se)) * subA;
+        el.style.zIndex = p.depth > 0.5 ? 41 : 11;
+        el.style.filter = 'blur(' + (1.6 * (1 - p.depth)) + 'px)';
+        el.style.pointerEvents = (subA > 0.5 && (subZoomTarget === 0 || atTop)) ? 'auto' : 'none';
+      }
+    } else {
+      for (const el of subNodes) { el.style.opacity = 0; el.style.pointerEvents = 'none'; }
+    }
+
+    // ----- background drifters
+    for (const d of DRIFTERS) {
+      d.x += d.speed;
+      if (d.x > W + d.w) { d.x = -d.w * 1.5; d.y = Math.random() * H; }
+      d.el.style.width = d.w + 'px';
+      d.el.style.height = d.w + 'px';
+      d.el.style.transform = 'translate(' + d.x + 'px,' + d.y + 'px)';
+      // dissolve with altitude: fully gone before the sunset band (unless the
+      // page-level darkening has swallowed the sunset, in which case fly free)
+      const skyFade = Math.max(0, Math.min(1, (0.86 - (d.y + d.w) / H) / 0.14));
+      d.el.style.opacity = d.o * lerp(skyFade, 1, Math.max(e, 0));
+    }
+
+    // ----- front description (home only)
     if (best >= 0 && zoomTarget === 0) {
-      const b = BRANCHES[best];
+      const b = SECTIONS[best];
       if (frontName.textContent !== b.name) {
         frontName.textContent = b.name;
         frontDesc.textContent = b.desc;
       }
       const emph = Math.max(0, (bestDepth - 0.85) / 0.15);
-      frontBox.style.opacity = (0.35 + emph * 0.65) * (1 - e);
+      frontBox.style.opacity = (0.35 + emph * 0.65) * (1 - e) * (1 - intro);
     } else {
       frontBox.style.opacity = 0;
     }
 
-    // crossfade home chrome vs page
-    const homeA = 1 - e;
+    // ----- chrome fades
+    // title gates: ease open once the relevant ring is 80% landed
+    wmA += ((intro < 0.2 ? 1 : 0) - wmA) * 0.06;
+    subWmA += ((subIntro < 0.2 ? 1 : 0) - subWmA) * 0.06;
+
+    // home chrome is fully gone early in the dive; on the way back up it returns late
+    const homeGate = zoomTarget === 0 ? 0.05 : 0.35;
+    const homeA = (1 - Math.min(1, e / homeGate)) * wmA;
     darkenEl.style.opacity = e;
+    blackoutEl.style.opacity = orbital ? se : 0;
     wordmark.style.opacity = homeA;
     tagline.style.opacity = 0.65 * homeA;
     scrimEl.style.opacity = homeA;
     hintEl.style.opacity = homeA;
-    const pageA = Math.max(0, (e - 0.55) / 0.45);
+    // hub title lives while zoomed into a satellite hub, gone once an orbital opens
+    const hubGate = subZoomTarget === 0 ? 0.05 : 0.35;
+    const hubA = e * (orbital ? 1 : 0) * (1 - Math.min(1, se / hubGate)) * subWmA;
+    subWordmark.style.opacity = hubA;
+    subTagline.style.opacity = 0.75 * hubA;
+
+    // content pages arrive only after the dive has fully settled
+    const contentE = orbital ? se : e;
+    const pageA = Math.max(0, (contentE - 0.8) / 0.2);
     pageEl.style.opacity = pageA;
-    pageEl.style.pointerEvents = e > 0.8 ? 'auto' : 'none';
-    ringzoneEl.style.pointerEvents = e > 0.8 ? 'auto' : 'none';
+    pageEl.style.pointerEvents = contentE > 0.9 ? 'auto' : 'none';
+    // while the portal workspace is open, the arc is not an exit — leaving is explicit
+    const dashOpen = !!document.querySelector('.dash');
+    ringzoneEl.style.pointerEvents = (e > 0.8 && atTop && !dashOpen && (!orbital || se === 0 || se > 0.8)) ? 'auto' : 'none';
 
     requestAnimationFrame(frame);
   }
 
-  // ---------- input (home mode only) ----------
+  // ---------------- input ----------------
+  // home: drag/wheel turns the main ring. Satellite hub: drag/wheel turns the sub-ring.
   let dragging = false, lastX = 0, dragMoved = false;
+  const hubMode = () => zoomTarget === 1 && hasOrbitals() && subZoomTarget === 0;
   addEventListener('pointerdown', (e) => {
-    if (zoomTarget === 1) return;
+    if (zoomTarget === 1 && !hubMode()) return;
     dragging = true; dragMoved = false; lastX = e.clientX;
     document.body.classList.add('dragging');
   });
@@ -408,19 +1605,21 @@
     targetVel = Math.sign(vel || 1) * 0.0022;
   });
   addEventListener('pointermove', (e) => {
-    if (!dragging || zoomTarget === 1) return;
+    if (!dragging) return;
     const dx = e.clientX - lastX; lastX = e.clientX;
     if (Math.abs(dx) > 3) dragMoved = true;
-    rot += dx * 0.004; vel = dx * 0.004; targetVel = Math.sign(dx || 1) * 0.0022;
+    if (hubMode()) { subRot += dx * 0.004; lastSpinSub = Date.now(); }
+    else if (zoomTarget === 0) { rot += dx * 0.004; vel = dx * 0.004; targetVel = Math.sign(dx || 1) * 0.0022; lastSpinMain = Date.now(); }
   });
   addEventListener('wheel', (e) => {
-    if (zoomTarget === 1) return;   // on a page, the wheel scrolls the page
     const d = (Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY);
-    rot += d * 0.0016; vel = d * 0.0016; targetVel = Math.sign(d || 1) * 0.0022;
+    if (hubMode()) { subRot += d * 0.0016; lastSpinSub = Date.now(); }
+    else if (zoomTarget === 0) { rot += d * 0.0016; vel = d * 0.0016; targetVel = Math.sign(d || 1) * 0.0022; lastSpinMain = Date.now(); }
   }, { passive: true });
 
   applyRoute();
-  if (zoomTarget === 1) { zoom = 1; rot = rotTarget; }   // deep link: land directly on the page
+  if (zoomTarget === 1) { zoom = 1; rot = rotTarget; }
+  if (subZoomTarget === 1) { subZoom = 1; subRot = subRotTarget; }
   frame();
 </script>
 </body>
