@@ -353,36 +353,60 @@
     text-shadow: 0 0 24px rgba(232, 137, 74, 0.35);
   }
   .dash-nav { display: flex; flex-direction: column; }
-  .dash-nav button {
+  /* each tab a step deeper into the gradient, ruled apart by faint lines */
+  #railnav > * { border-bottom: 1px solid rgba(246, 231, 201, 0.1); }
+  #railnav > *:last-child { border-bottom: none; }
+  /* one row specification for every rail row: same height, same weight, same voice */
+  .dash-nav button, .grp-h {
     text-align: left; background: none; border: none; cursor: pointer;
-    color: var(--cream); opacity: 0.55;
-    font-family: Georgia, serif; font-size: 0.72rem;
-    letter-spacing: 0.2em; text-transform: uppercase;
-    padding: 0.85rem 1.3rem;
+    color: var(--cream); opacity: 0.82;
+    font-family: Georgia, serif; font-size: 0.76rem; font-weight: 700;
+    letter-spacing: 0.24em; text-transform: uppercase;
+    padding: 1.05rem 1.4rem;
     border-left: 2px solid transparent;
+    white-space: nowrap;
   }
-  .dash-nav button:hover { opacity: 0.9; }
+  .dash-nav button:hover { opacity: 1; }
   .dash-nav button.active {
     opacity: 1;
     border-left-color: var(--sunrise);
     background: rgba(246, 231, 201, 0.05);
   }
   .dash-side { overflow-y: auto; }
-  .grp-h {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 0.7rem 1.3rem 0.25rem;
-    font-size: 0.58rem; letter-spacing: 0.24em; text-transform: uppercase;
-    opacity: 0.4; cursor: pointer;
-  }
-  .grp-h:hover { opacity: 0.8; }
+  .grp-h { display: flex; justify-content: space-between; align-items: center; }
+  .grp-h:hover { opacity: 1; }
+  .grp-h > span:last-child { opacity: 0.55; font-size: 0.65rem; }
   .grp.closed .grp-b { display: none; }
-  .dash-nav button.sub { padding: 0.5rem 1.3rem 0.5rem 1.7rem; font-size: 0.66rem; }
+  /* nested rooms hang off a bracket line, each ruled apart */
+  .grp-b { margin-left: 1.35rem; border-left: 1px solid rgba(246, 231, 201, 0.2); }
+  .grp-b button { border-bottom: 1px solid rgba(246, 231, 201, 0.07); }
+  .grp-b button:last-child { border-bottom: none; }
+  .dash-nav button.sub { padding: 0.8rem 1.1rem; width: 100%; opacity: 0.68; }
   .pdot {
     display: inline-block; width: 5px; height: 5px; border-radius: 50%;
     background: var(--cream); opacity: 0.75; margin-right: 0.5rem; vertical-align: middle;
     box-shadow: 0 0 5px rgba(246, 231, 201, 0.8);
   }
   .pdot.director { background: #c05a86; box-shadow: 0 0 6px rgba(192, 90, 134, 0.9); }
+  .rail-sep { border-top: 1px solid rgba(246, 231, 201, 0.12); margin: 0.9rem 1.1rem; }
+  .org-tier { margin-bottom: 1.8rem; }
+  .org-h {
+    font-size: 0.62rem; letter-spacing: 0.26em; text-transform: uppercase;
+    opacity: 0.45; margin-bottom: 0.7rem;
+  }
+  .org-p {
+    display: flex; align-items: center; gap: 0.6rem;
+    border: 1px solid rgba(246, 231, 201, 0.22); border-radius: 6px;
+    padding: 0.6rem 0.9rem; margin-bottom: 0.5rem;
+    max-width: 22rem; cursor: pointer;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .org-p:hover { border-color: rgba(246, 231, 201, 0.6); box-shadow: 0 0 16px rgba(232, 137, 74, 0.25); }
+  .org-p.me { cursor: default; opacity: 0.75; }
+  .org-p.me:hover { border-color: rgba(246, 231, 201, 0.22); box-shadow: none; }
+  .org-hdl { letter-spacing: 0.12em; text-transform: uppercase; font-size: 0.85rem; }
+  .org-you { margin-left: auto; font-style: italic; font-size: 0.72rem; opacity: 0.5; }
+
   .newchat-form label { display: block; font-size: 0.68rem; letter-spacing: 0.2em; text-transform: uppercase; opacity: 0.65; margin: 1.1rem 0 0.4rem; }
   .newchat-form .pick { display: block; margin: 0.35rem 0; font-size: 0.85rem; opacity: 0.8; cursor: pointer; }
   .newchat-form input[type="checkbox"] { accent-color: var(--sunrise); margin-right: 0.6rem; }
@@ -436,6 +460,20 @@
     background: rgba(0, 0, 0, 0.35); font-size: 0.92rem;
   }
   .chat-log { display: flex; flex-direction: column; gap: 0.7rem; max-height: 48vh; overflow-y: auto; padding-right: 0.4rem; margin-bottom: 1rem; }
+  /* dialogue: received speaks from the left, sent answers from the right */
+  .msg {
+    max-width: 72%; align-self: flex-start;
+    background: rgba(246, 231, 201, 0.04);
+    border: 1px solid rgba(246, 231, 201, 0.1);
+    border-radius: 8px;
+    padding: 0.6rem 0.95rem;
+  }
+  .msg.mine {
+    align-self: flex-end;
+    background: #2b1020;
+    border-color: rgba(246, 231, 201, 0.2);
+  }
+  .msg.mine .m-h { justify-content: flex-end; }
   .msg .m-h { display: flex; gap: 0.55rem; align-items: baseline; flex-wrap: wrap; }
   .msg .m-handle { letter-spacing: 0.12em; text-transform: uppercase; font-size: 0.78rem; }
   /* rank as orbits: member is a point of light, executive gains a ring,
@@ -935,7 +973,7 @@
   function msgHtml(m) {
     if (m.deleted) return '';
     const when = new Date(m.created_at).toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' });
-    return '<div class="msg" data-id="' + m.id + '"><div class="m-h">' +
+    return '<div class="msg' + (m.user_id === portalUserId ? ' mine' : '') + '" data-id="' + m.id + '"><div class="m-h">' +
       '<span class="m-handle">' + escHtml(m.handle) + '</span>' +
       roleBadge(m.role) +
       '<span class="m-time">' + when + '</span>' +
@@ -977,8 +1015,8 @@
   const isDirector = () => portalMember && portalMember.role === 'director';
 
   function roomLabel(r) {
-    if (r.kind === 'all') return 'All';
-    if (r.kind === 'officers') return 'Director and Executives';
+    if (r.kind === 'all') return 'All Chat';
+    if (r.kind === 'officers') return 'BoardRoom';
     if (r.kind === 'custom') return r.name || 'Unnamed chat';
     const other = (roomPeeps[r.id] || []).find((u) => u !== portalUserId);
     const p = people.find((x) => x.user_id === other);
@@ -1013,32 +1051,64 @@
       .subscribe();
   }
 
+  // folded/unfolded choices survive every rail rebuild
+  const grpState = {};
+  function toggleGrp(h, title) {
+    const g = h.parentElement;
+    g.classList.toggle('closed');
+    grpState[title] = g.classList.contains('closed');
+  }
+
   function buildRail() {
     const inRoom = (r) => (roomPeeps[r.id] || []).includes(portalUserId) || r.created_by === portalUserId;
-    const rBtn = (r) => '<button class="sub' + (currentRoom && currentRoom.id === r.id ? ' active' : '') + '" onclick="openRoom(\'' + r.id + '\')">' + escHtml(roomLabel(r)) + '</button>';
-    const pBtn = (p) => '<button class="sub" onclick="openDm(\'' + p.user_id + '\')"><span class="pdot ' + p.role + '"></span>' + escHtml(p.handle) + '</button>';
-    const grp = (title, body, closed) => body
-      ? '<div class="grp' + (closed ? ' closed' : '') + '"><div class="grp-h" onclick="this.parentElement.classList.toggle(\'closed\')"><span>' + title + '</span><span>&#9662;</span></div><div class="grp-b">' + body + '</div></div>'
-      : '';
+    const rBtn = (r, sub) => '<button class="' + (sub ? 'sub' : '') + (currentRoom && currentRoom.id === r.id ? ' active' : '') + '" onclick="openRoom(\'' + r.id + '\')">' + escHtml(roomLabel(r)) + '</button>';
+    const grp = (title, body, closed) => {
+      if (!body) return '';
+      const isClosed = title in grpState ? grpState[title] : !!closed;
+      return '<div class="grp' + (isClosed ? ' closed' : '') + '"><div class="grp-h" onclick="toggleGrp(this, \'' + title + '\')"><span>' + title + '</span><span>&#9662;</span></div><div class="grp-b">' + body + '</div></div>';
+    };
     const officers = roleRank[portalMember.role] >= 1;
-    const channels =
-      rooms.filter((r) => r.kind === 'all').map(rBtn).join('') +
-      (officers ? rooms.filter((r) => r.kind === 'officers').map(rBtn).join('') : '') +
-      rooms.filter((r) => r.kind === 'custom' && inRoom(r)).map(rBtn).join('') +
-      '<button class="sub" onclick="newChatForm()">+ New chat</button>';
-    const byRole = { director: [], executive: [], member: [] };
-    people.forEach((p) => { if (p.user_id !== portalUserId) byRole[p.role].push(p); });
+    const mine = rooms.filter((r) => (r.kind === 'custom' || r.kind === 'dm') && inRoom(r));
     let rail =
-      '<button class="' + (dashView === 'news' ? 'active' : '') + '" onclick="openNews()">News Feed</button>' +
-      grp('Channels', channels) +
-      grp('Director', byRole.director.map(pBtn).join('')) +
-      grp('Executives', byRole.executive.map(pBtn).join('')) +
-      grp('Members', byRole.member.map(pBtn).join(''));
+      '<button class="' + (dashView === 'news' ? 'active' : '') + '" onclick="openNews()">News</button>' +
+      rooms.filter((r) => r.kind === 'all').map((r) => rBtn(r, false)).join('') +
+      (officers ? rooms.filter((r) => r.kind === 'officers').map((r) => rBtn(r, false)).join('') : '') +
+      grp('Custom Chats',
+        mine.map((r) => rBtn(r, true)).join('') +
+        '<button class="sub' + (dashView === 'create' ? ' active' : '') + '" onclick="newChatForm()">Create +</button>');
     if (isDirector()) {
       const unseen = rooms.filter((r) => (r.kind === 'custom' || r.kind === 'dm') && !inRoom(r));
-      rail += grp('Oversight', unseen.map(rBtn).join(''), true);
+      rail += grp('Oversight', unseen.map((r) => rBtn(r, true)).join(''), true);
     }
-    document.getElementById('railnav').innerHTML = rail;
+    rail += '<button class="' + (dashView === 'org' ? 'active' : '') + '" onclick="openOrgChart()">Org Chart</button>';
+    const nav = document.getElementById('railnav');
+    nav.innerHTML = rail;
+    // one uniform plum for every tab; the rules carry the separation
+    [...nav.children].forEach((el) => { el.style.background = '#2b1020'; });
+  }
+
+  // ----- org chart: the collective's structure; click a person to open the 1-to-1 -----
+  function openOrgChart() {
+    dashView = 'org'; currentRoom = null;
+    document.getElementById('dashhead').textContent = 'Org Chart';
+    const foot = document.querySelector('.dash-foot');
+    if (foot) foot.style.display = 'none';
+    const tier = (title, list) => list.length
+      ? '<div class="org-tier"><div class="org-h">' + title + '</div>' + list.map((p) => {
+          const me = p.user_id === portalUserId;
+          return '<div class="org-p' + (me ? ' me' : '') + '"' + (me ? '' : ' onclick="openDm(\'' + p.user_id + '\')"') + '>' +
+            '<span class="pdot ' + p.role + '"></span><span class="org-hdl">' + escHtml(p.handle) + '</span>' +
+            (me ? '<span class="org-you">you</span>' : '') + '</div>';
+        }).join('') + '</div>'
+      : '';
+    const byRole = { director: [], executive: [], member: [] };
+    people.forEach((p) => byRole[p.role].push(p));
+    document.getElementById('dashbody').innerHTML =
+      tier('The Director', byRole.director) +
+      tier('The Executives', byRole.executive) +
+      tier('The Members', byRole.member) +
+      '<p style="font-style:italic;opacity:.45;font-size:.85rem;margin-top:1rem">Choose anyone to open a private chat.</p>';
+    buildRail();
   }
 
   async function openRoom(id) {
@@ -1071,8 +1141,10 @@
   }
 
   function newChatForm() {
-    currentRoom = null;
-    document.getElementById('dashhead').textContent = 'New chat';
+    dashView = 'create'; currentRoom = null;
+    const foot = document.querySelector('.dash-foot');
+    if (foot) foot.style.display = 'none';
+    document.getElementById('dashhead').textContent = 'Create Chat';
     document.getElementById('dashbody').innerHTML =
       '<div class="newchat-form portal" style="max-width:26rem">' +
       '<label>Chat name</label><input id="ncname" maxlength="40" placeholder="Name the room">' +

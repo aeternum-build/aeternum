@@ -32,7 +32,7 @@ try {
   }
 } catch { /* no .env — rely on real environment */ }
 
-const { SUPABASE_URL, SUPABASE_SERVICE_KEY, AETERNUM_REPO, BRIDGE_ROOM = 'The Bridge' } = process.env;
+const { SUPABASE_URL, SUPABASE_SERVICE_KEY, AETERNUM_REPO, BRIDGE_ROOM = 'Claude' } = process.env;
 if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) { console.error('Set SUPABASE_URL and SUPABASE_SERVICE_KEY in .env'); process.exit(1); }
 
 const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, { realtime: { transport: ws } });
