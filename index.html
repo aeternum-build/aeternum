@@ -202,6 +202,55 @@
     100% { opacity: 0; }
   }
 
+  /* ---------- language selection: a quiet chip in the top right corner ---------- */
+  #langsel { position: fixed; top: 1.1rem; right: 1.6rem; z-index: 60; text-align: right; }
+  #langcur {
+    background: rgba(0, 0, 0, 0.55); cursor: pointer;
+    border: 2px solid rgba(246, 231, 201, 0.42); border-radius: 6px;
+    color: var(--cream); opacity: 0.85;
+    font-family: Georgia, serif; font-size: 0.72rem; font-weight: 700;
+    letter-spacing: 0.26em; text-transform: uppercase;
+    padding: 0.55rem 0.7rem 0.55rem 0.95rem;
+    transition: box-shadow 0.25s, opacity 0.25s;
+  }
+  #langcur:hover { opacity: 1; box-shadow: 0 0 18px rgba(232, 137, 74, 0.25); }
+  #langmenu {
+    display: none; margin-top: 0.5rem;
+    background: rgba(0, 0, 0, 0.82);
+    border: 2px solid rgba(246, 231, 201, 0.42); border-radius: 6px;
+    overflow: hidden;
+  }
+  #langsel.open #langmenu { display: block; }
+  /* one row specification for every tongue: same size, same weight, same height */
+  #langmenu button {
+    display: block; width: 100%; text-align: right; cursor: pointer;
+    background: none; border: none; color: var(--cream); opacity: 0.75;
+    font-family: Georgia, serif; font-size: 0.85rem; line-height: 1;
+    padding: 0.65rem 1rem;
+    border-bottom: 1px solid rgba(246, 231, 201, 0.1);
+    border-right: 2px solid transparent;
+    white-space: nowrap;
+  }
+  #langmenu button:last-child { border-bottom: none; }
+  #langmenu button:hover { opacity: 1; }
+  #langmenu button.active { opacity: 1; border-right-color: var(--sunrise); background: rgba(246, 231, 201, 0.05); }
+  @media (max-width: 520px) {
+    #langsel { right: 1rem; top: 0.9rem; }
+    #langcur { font-size: 0.6rem; padding: 0.45rem 0.55rem 0.45rem 0.8rem; }
+  }
+
+  /* scripts outside the latin orbit: arabic joins its letters and devanagari
+     stacks its signs, so tracking would tear them; none of the three carries
+     an italic tradition, so the slant comes off for their display text */
+  html[data-notrack] .node .label, html[data-notrack] .page-nav,
+  html[data-notrack] #front-desc .name, html[data-notrack] .introhint,
+  html[data-notrack] .p-toggle, html[data-notrack] .p-progress-note,
+  html[data-notrack] .p-cat, html[data-notrack] .member .m-name { letter-spacing: normal; }
+  html[data-noital] .subwordmark, html[data-noital] .subtagline,
+  html[data-noital] .page-inner h1, html[data-noital] .page-lede,
+  html[data-noital] #front-desc .desc, html[data-noital] .coming .c-title,
+  html[data-noital] .member .m-status { font-style: normal; }
+
   /* phones: smaller title, tighter chrome, room for the rounder orbit */
   @media (max-width: 520px) {
     .wordmark { font-size: 2.1rem; }
@@ -656,20 +705,170 @@
 <div class="wordmark">Aeternum</div>
 <div class="tagline">vis, amor, creatio</div>
 <div class="subwordmark"></div>
-<div class="subtagline"></div>
+<div class="subtagline" dir="auto"></div>
 <div id="scene"></div>
-<div id="front-desc"><div class="name"></div><div class="desc"></div></div>
+<div id="front-desc"><div class="name"></div><div class="desc" dir="auto"></div></div>
 <div class="introhint">rotate the ring and click its satellites</div>
+<div id="langsel"><button id="langcur">EN</button><div id="langmenu"></div></div>
 
 <div id="ringzone" title="Return to orbit"></div>
 <div id="page"><div class="page-inner">
-  <h1></h1>
-  <div class="page-lede"></div>
+  <h1 dir="auto"></h1>
+  <div class="page-lede" dir="auto"></div>
   <div class="page-body"></div>
   <div class="page-nav"><a class="prev" href="#"></a><a class="next" href="#"></a></div>
 </div></div>
 
 <script>
+  // ---------------- language ----------------
+  // the public face speaks eight tongues; the Apply form and the Portal keep English.
+  // keys are slugs (name.*, desc.*) or chrome (ui.*, m.*); English lives inline below as the fallback.
+  const LANGS = [
+    { code: 'en', chip: 'EN', native: 'English' },
+    { code: 'zh', chip: 'ZH', native: '中文' },
+    { code: 'hi', chip: 'HI', native: 'हिन्दी' },
+    { code: 'es', chip: 'ES', native: 'Español' },
+    { code: 'fr', chip: 'FR', native: 'Français' },
+    { code: 'it', chip: 'IT', native: 'Italiano' },
+    { code: 'ar', chip: 'AR', native: 'العربية' },
+    { code: 'de', chip: 'DE', native: 'Deutsch' },
+  ];
+  let LANG = 'en';
+  try { LANG = localStorage.getItem('aeternum.lang') || 'en'; } catch (e) {}
+  if (!LANGS.some((l) => l.code === LANG)) LANG = 'en';
+
+  const I18N = {
+    zh: {
+      'name.who-we-are': '我们是谁', 'name.our-mission': '我们的使命', 'name.application': '申请',
+      'name.completed-projects': '已完成的项目', 'name.inbound-projects': '即将到来的项目', 'name.portal': '门户',
+      'name.the-director': '主理人', 'name.the-executives': '执行团队', 'name.the-members': '成员',
+      'name.our-beliefs': '我们的信念', 'name.our-outlook': '我们的展望', 'name.all': '全部',
+      'name.corporate': '面向企业', 'name.developer': '面向开发者', 'name.lifestyle': '面向生活',
+      'name.everyone': '面向一切', 'name.fun': '趣味之作',
+      'desc.who-we-are': '一个由建造者与创造者组成的集体，拥抱新兴技术，在众多领域打造高品质的产品，并在未来到来之际彼此砥砺。',
+      'desc.our-mission': '当人类逐步走向技术奇点，我们的使命是拥抱新兴技术，在广阔的领域与空间中构建、打磨并发布高品质的产品。我们的信念围绕着对人工智能的接纳、成长与应用，以及它如何融入日常生活与历史的进程。',
+      'desc.application': 'Aeternum 依邀请与申请而成长。请向我们展示你的做事方式与你建造过的作品；被接纳的成员将加入这个集体、它的门户与它的项目。',
+      'desc.completed-projects': '已离开锻造场的作品。可通过网址、下载或购买获得。',
+      'desc.inbound-projects': '仍在轨道上的作品：进度、目标与预计到来的时间。',
+      'desc.portal': '成员的领地：聊天与信号。凭会员资格进入。',
+      'ui.hint': '转动圆环，点击它的卫星', 'ui.orbit': '返回轨道', 'ui.coming': '敬请期待',
+      'ui.details': '详情', 'ui.close': '收起', 'ui.progress': '已完成 {n}%', 'ui.arriving': '，预计 {y} 到来',
+      'm.founder': '创始人兼主理人', 'm.exec': '执行席位现已开放', 'm.exec.s': '从成员中任命',
+      'm.mem': '创始成员资格现已开放', 'm.mem.s': '请通过申请卫星提交申请',
+    },
+    hi: {
+      'name.who-we-are': 'हम कौन हैं', 'name.our-mission': 'हमारा उद्देश्य', 'name.application': 'आवेदन',
+      'name.completed-projects': 'पूर्ण परियोजनाएँ', 'name.inbound-projects': 'आगामी परियोजनाएँ', 'name.portal': 'पोर्टल',
+      'name.the-director': 'निदेशक', 'name.the-executives': 'कार्यकारी', 'name.the-members': 'सदस्य',
+      'name.our-beliefs': 'हमारी मान्यताएँ', 'name.our-outlook': 'हमारा दृष्टिकोण', 'name.all': 'सभी',
+      'name.corporate': 'कॉर्पोरेट के लिए', 'name.developer': 'डेवलपर्स के लिए', 'name.lifestyle': 'जीवनशैली के लिए',
+      'name.everyone': 'सबके लिए', 'name.fun': 'मनोरंजन के लिए',
+      'desc.who-we-are': 'बनाने वालों और रचनाकारों का एक समूह, जो उभरती तकनीकों को अपनाकर अनेक क्षेत्रों में उच्च गुणवत्ता के उत्पाद प्रस्तुत करता है, और भविष्य के आते समय परस्पर सजग रहता है।',
+      'desc.our-mission': 'मानवता जब तकनीकी सिंगुलैरिटी की ओर बढ़ रही है, हमारा उद्देश्य है उभरती तकनीकों को अपनाकर क्षेत्रों की एक विस्तृत श्रृंखला में उच्च गुणवत्ता के उत्पाद बनाना, निखारना और जारी करना। हमारा दर्शन कृत्रिम बुद्धिमत्ता की स्वीकृति, विकास और अनुप्रयोग पर केंद्रित है, और इस पर कि वह दैनिक जीवन और आगे के इतिहास में कैसे समाहित हो सकती है।',
+      'desc.application': 'Aeternum निमंत्रण और आवेदन से बढ़ता है। हमें दिखाइए कि आप कैसे काम करते हैं और आपने क्या बनाया है; स्वीकृत सदस्य इस समूह, इसके पोर्टल और इसकी परियोजनाओं में शामिल होते हैं।',
+      'desc.completed-projects': 'वह काम जो भट्ठी से निकल चुका है। URL, डाउनलोड या खरीद से उपलब्ध।',
+      'desc.inbound-projects': 'वह काम जो अभी कक्षा में है: प्रगति, प्रयोजन और अपेक्षित आगमन।',
+      'desc.portal': 'सदस्यों का आँगन: संवाद और संकेत। प्रवेश सदस्यता से।',
+      'ui.hint': 'वलय को घुमाइए और उसके उपग्रहों पर क्लिक कीजिए', 'ui.orbit': 'कक्षा में लौटें', 'ui.coming': 'शीघ्र आ रहा है',
+      'ui.details': 'विवरण', 'ui.close': 'बंद करें', 'ui.progress': '{n}% पूर्ण', 'ui.arriving': ', आगमन {y}',
+      'm.founder': 'संस्थापक और निदेशक', 'm.exec': 'कार्यकारी पद खुले हैं', 'm.exec.s': 'सदस्यों में से नियुक्त',
+      'm.mem': 'संस्थापक सदस्यता खुली है', 'm.mem.s': 'आवेदन उपग्रह से आवेदन कीजिए',
+    },
+    es: {
+      'name.who-we-are': 'Quiénes somos', 'name.our-mission': 'Nuestra misión', 'name.application': 'Solicitud',
+      'name.completed-projects': 'Proyectos terminados', 'name.inbound-projects': 'Proyectos en camino', 'name.portal': 'Portal',
+      'name.the-director': 'La Dirección', 'name.the-executives': 'Los Ejecutivos', 'name.the-members': 'Los Miembros',
+      'name.our-beliefs': 'Nuestras creencias', 'name.our-outlook': 'Nuestra visión', 'name.all': 'Todos',
+      'name.corporate': 'Para empresas', 'name.developer': 'Para desarrolladores', 'name.lifestyle': 'Para el estilo de vida',
+      'name.everyone': 'Para todo', 'name.fun': 'Para la diversión',
+      'desc.who-we-are': 'Un colectivo de constructores y creadores que adopta tecnologías emergentes para lanzar productos de alta calidad en muchos campos, y cuyos miembros se mantienen alerta unos a otros mientras el futuro llega.',
+      'desc.our-mission': 'Mientras la humanidad se acerca a la singularidad tecnológica, nuestra misión es adoptar tecnologías emergentes para construir, refinar y lanzar productos de alta calidad en una amplia gama de campos y espacios. Nuestro ethos gira en torno a la aceptación, el crecimiento y la aplicación de la inteligencia artificial, y a cómo puede integrarse en la vida diaria y en el resto de la historia.',
+      'desc.application': 'Aeternum crece por invitación y por solicitud. Muéstranos cómo operas y qué has construido; los miembros aceptados se unen al colectivo, a su portal y a sus proyectos.',
+      'desc.completed-projects': 'Trabajo que ya salió de la forja. Disponible por URL, descarga o compra.',
+      'desc.inbound-projects': 'Trabajo aún en órbita: progreso, propósito y llegada prevista.',
+      'desc.portal': 'El barrio de los miembros: el chat y la señal. Se entra con la membresía.',
+      'ui.hint': 'gira el anillo y pulsa sus satélites', 'ui.orbit': 'Volver a la órbita', 'ui.coming': 'Próximamente',
+      'ui.details': 'Detalles', 'ui.close': 'Cerrar', 'ui.progress': '{n}% completado', 'ui.arriving': ', llega en {y}',
+      'm.founder': 'Fundador y Director', 'm.exec': 'Los puestos ejecutivos están abiertos', 'm.exec.s': 'se designan entre los miembros',
+      'm.mem': 'Las membresías fundadoras están abiertas', 'm.mem.s': 'solicita a través del satélite Solicitud',
+    },
+    fr: {
+      'name.who-we-are': 'Qui nous sommes', 'name.our-mission': 'Notre mission', 'name.application': 'Candidature',
+      'name.completed-projects': 'Projets achevés', 'name.inbound-projects': 'Projets en approche', 'name.portal': 'Portail',
+      'name.the-director': 'La Direction', 'name.the-executives': 'Les Cadres', 'name.the-members': 'Les Membres',
+      'name.our-beliefs': 'Nos convictions', 'name.our-outlook': 'Notre vision', 'name.all': 'Tous',
+      'name.corporate': 'Pour les entreprises', 'name.developer': 'Pour les développeurs', 'name.lifestyle': 'Pour le quotidien',
+      'name.everyone': 'Pour tout', 'name.fun': 'Pour le plaisir',
+      'desc.who-we-are': 'Un collectif de bâtisseurs et de créateurs qui adopte les technologies émergentes pour livrer des produits de grande qualité dans de nombreux domaines, et dont les membres s\'aiguisent mutuellement à mesure que le futur arrive.',
+      'desc.our-mission': 'Alors que l\'humanité approche de la singularité technologique, notre mission est d\'adopter les technologies émergentes pour construire, affiner et publier des produits de grande qualité dans un vaste éventail de domaines et d\'espaces. Notre éthos repose sur l\'acceptation, la croissance et l\'application de l\'intelligence artificielle, et sur la manière dont elle peut se fondre dans la vie quotidienne et dans le reste de l\'histoire.',
+      'desc.application': 'Aeternum grandit par invitation et par candidature. Montrez nous comment vous opérez et ce que vous avez bâti; les membres acceptés rejoignent le collectif, son portail et ses projets.',
+      'desc.completed-projects': 'Le travail qui a quitté la forge. Disponible par URL, téléchargement ou achat.',
+      'desc.inbound-projects': 'Le travail encore en orbite: progression, raison d\'être et arrivée prévue.',
+      'desc.portal': 'Le quartier des membres: la conversation et le signal. L\'entrée se fait par l\'adhésion.',
+      'ui.hint': 'faites tourner l\'anneau et cliquez sur ses satellites', 'ui.orbit': 'Revenir à l\'orbite', 'ui.coming': 'Bientôt',
+      'ui.details': 'Détails', 'ui.close': 'Fermer', 'ui.progress': '{n}% achevé', 'ui.arriving': ', arrivée en {y}',
+      'm.founder': 'Fondateur et Directeur', 'm.exec': 'Les sièges exécutifs sont ouverts', 'm.exec.s': 'pourvus parmi les membres',
+      'm.mem': 'Les adhésions fondatrices sont ouvertes', 'm.mem.s': 'candidatez par le satellite Candidature',
+    },
+    it: {
+      'name.who-we-are': 'Chi siamo', 'name.our-mission': 'La nostra missione', 'name.application': 'Candidatura',
+      'name.completed-projects': 'Progetti completati', 'name.inbound-projects': 'Progetti in arrivo', 'name.portal': 'Portale',
+      'name.the-director': 'La Direzione', 'name.the-executives': 'I Dirigenti', 'name.the-members': 'I Membri',
+      'name.our-beliefs': 'Le nostre convinzioni', 'name.our-outlook': 'La nostra visione', 'name.all': 'Tutti',
+      'name.corporate': 'Per le aziende', 'name.developer': 'Per gli sviluppatori', 'name.lifestyle': 'Per lo stile di vita',
+      'name.everyone': 'Per tutto', 'name.fun': 'Per divertimento',
+      'desc.who-we-are': 'Un collettivo di costruttori e creatori che adotta le tecnologie emergenti per pubblicare prodotti di alta qualità in molti campi, e i cui membri si mantengono affilati a vicenda mentre il futuro arriva.',
+      'desc.our-mission': 'Mentre l\'umanità si avvicina alla singolarità tecnologica, la nostra missione è adottare le tecnologie emergenti per costruire, rifinire e pubblicare prodotti di alta qualità in una vasta gamma di campi e spazi. Il nostro ethos ruota attorno all\'accettazione, alla crescita e all\'applicazione dell\'intelligenza artificiale, e a come essa possa fondersi con la vita quotidiana e con il resto della storia.',
+      'desc.application': 'Aeternum cresce per invito e per candidatura. Mostraci come operi e cosa hai costruito; i membri accettati entrano nel collettivo, nel suo portale e nei suoi progetti.',
+      'desc.completed-projects': 'Lavoro che ha lasciato la forgia. Disponibile via URL, download o acquisto.',
+      'desc.inbound-projects': 'Lavoro ancora in orbita: progresso, scopo e arrivo previsto.',
+      'desc.portal': 'Il quartiere dei membri: la chat e il segnale. Si entra con l\'iscrizione.',
+      'ui.hint': 'ruota l\'anello e clicca i suoi satelliti', 'ui.orbit': 'Torna all\'orbita', 'ui.coming': 'Prossimamente',
+      'ui.details': 'Dettagli', 'ui.close': 'Chiudi', 'ui.progress': '{n}% completato', 'ui.arriving': ', in arrivo nel {y}',
+      'm.founder': 'Fondatore e Direttore', 'm.exec': 'I posti da dirigente sono aperti', 'm.exec.s': 'assegnati tra i membri',
+      'm.mem': 'Le iscrizioni fondative sono aperte', 'm.mem.s': 'candidati attraverso il satellite Candidatura',
+    },
+    ar: {
+      'name.who-we-are': 'من نحن', 'name.our-mission': 'رسالتنا', 'name.application': 'التقديم',
+      'name.completed-projects': 'المشاريع المنجزة', 'name.inbound-projects': 'المشاريع القادمة', 'name.portal': 'البوابة',
+      'name.the-director': 'المدير', 'name.the-executives': 'التنفيذيون', 'name.the-members': 'الأعضاء',
+      'name.our-beliefs': 'قناعاتنا', 'name.our-outlook': 'رؤيتنا', 'name.all': 'الكل',
+      'name.corporate': 'للشركات', 'name.developer': 'للمطورين', 'name.lifestyle': 'لنمط الحياة',
+      'name.everyone': 'لكل شيء', 'name.fun': 'للمتعة',
+      'desc.who-we-are': 'جماعة من البنّائين والمبدعين، تتبنى التقنيات الناشئة لتقديم منتجات عالية الجودة في ميادين كثيرة، ويشحذ أعضاؤها بعضهم بعضًا فيما المستقبل يقترب.',
+      'desc.our-mission': 'فيما تقترب البشرية من التفرد التكنولوجي، مهمتنا أن نتبنى التقنيات الناشئة لبناء منتجات عالية الجودة وصقلها وإطلاقها عبر طيف واسع من الميادين والفضاءات. تدور روحنا حول قبول الذكاء الاصطناعي ونموه وتطبيقه، وحول كيف يمكن أن يمتزج بالحياة اليومية وبقية التاريخ.',
+      'desc.application': 'ينمو Aeternum بالدعوة وبالتقديم. أرنا كيف تعمل وما الذي بنيته؛ الأعضاء المقبولون ينضمون إلى الجماعة وبوابتها ومشاريعها.',
+      'desc.completed-projects': 'أعمال غادرت المشغل. متاحة عبر الرابط أو التنزيل أو الشراء.',
+      'desc.inbound-projects': 'أعمال ما تزال في المدار: التقدم والغاية والوصول المتوقع.',
+      'desc.portal': 'حي الأعضاء: المحادثة والإشارة. الدخول بالعضوية.',
+      'ui.hint': 'أدر الحلقة وانقر على أقمارها', 'ui.orbit': 'العودة إلى المدار', 'ui.coming': 'قريبًا',
+      'ui.details': 'التفاصيل', 'ui.close': 'إغلاق', 'ui.progress': 'اكتمل {n}%', 'ui.arriving': '، الوصول {y}',
+      'm.founder': 'المؤسس والمدير', 'm.exec': 'المقاعد التنفيذية مفتوحة', 'm.exec.s': 'تُشغل من بين الأعضاء',
+      'm.mem': 'عضويات التأسيس مفتوحة', 'm.mem.s': 'قدّم عبر قمر التقديم',
+    },
+    de: {
+      'name.who-we-are': 'Wer wir sind', 'name.our-mission': 'Unsere Mission', 'name.application': 'Bewerbung',
+      'name.completed-projects': 'Abgeschlossene Projekte', 'name.inbound-projects': 'Kommende Projekte', 'name.portal': 'Portal',
+      'name.the-director': 'Die Direktion', 'name.the-executives': 'Die Führungskräfte', 'name.the-members': 'Die Mitglieder',
+      'name.our-beliefs': 'Unsere Überzeugungen', 'name.our-outlook': 'Unser Ausblick', 'name.all': 'Alle',
+      'name.corporate': 'Für Unternehmen', 'name.developer': 'Für Entwickler', 'name.lifestyle': 'Für den Lebensstil',
+      'name.everyone': 'Für alles', 'name.fun': 'Zum Vergnügen',
+      'desc.who-we-are': 'Ein Kollektiv aus Erbauern und Schöpfern, das aufkommende Technologien aufgreift, um hochwertige Produkte in vielen Feldern zu veröffentlichen, und dessen Mitglieder einander scharf halten, während die Zukunft anbricht.',
+      'desc.our-mission': 'Während die Menschheit sich der technologischen Singularität nähert, ist es unsere Mission, aufkommende Technologien aufzugreifen, um hochwertige Produkte in einem weiten Spektrum von Feldern und Räumen zu bauen, zu verfeinern und zu veröffentlichen. Unser Ethos kreist um die Annahme, das Wachstum und die Anwendung Künstlicher Intelligenz und darum, wie sie sich mit dem Alltag und dem Rest der Geschichte verweben lässt.',
+      'desc.application': 'Aeternum wächst durch Einladung und durch Bewerbung. Zeig uns, wie du arbeitest und was du gebaut hast; aufgenommene Mitglieder treten dem Kollektiv, seinem Portal und seinen Projekten bei.',
+      'desc.completed-projects': 'Arbeit, die die Schmiede verlassen hat. Verfügbar per URL, Download oder Kauf.',
+      'desc.inbound-projects': 'Arbeit noch im Orbit: Fortschritt, Zweck und erwartete Ankunft.',
+      'desc.portal': 'Das Quartier der Mitglieder: der Chat und das Signal. Eintritt durch Mitgliedschaft.',
+      'ui.hint': 'drehe den Ring und klicke auf seine Satelliten', 'ui.orbit': 'Zurück in den Orbit', 'ui.coming': 'Demnächst',
+      'ui.details': 'Details', 'ui.close': 'Schließen', 'ui.progress': '{n}% vollendet', 'ui.arriving': ', Ankunft {y}',
+      'm.founder': 'Gründer und Direktor', 'm.exec': 'Die Führungssitze sind offen', 'm.exec.s': 'besetzt aus der Mitgliedschaft',
+      'm.mem': 'Die Gründungsmitgliedschaften sind offen', 'm.mem.s': 'bewirb dich über den Satelliten Bewerbung',
+    },
+  };
+  const tr = (key, fallback) => (I18N[LANG] && I18N[LANG][key]) || fallback;
+  const secName = (s) => tr('name.' + s.slug, s.name);
+  const secDesc = (s) => tr('desc.' + s.slug, s.desc);
+
   // ---------------- content ----------------
   // members are listed by a social handle of their choosing; legal name optional
   const PLATFORMS = {
@@ -682,13 +881,13 @@
   };
   const MEMBERS = {
     director: [
-      { handle: '@redpropriety', platform: 'x', status: 'Founder and Director' },
+      { handle: '@redpropriety', platform: 'x', k: 'founder', status: 'Founder and Director' },
     ],
     executives: [
-      { label: 'Executive seats are open', status: 'appointed from within the membership' },
+      { k: 'exec', label: 'Executive seats are open', status: 'appointed from within the membership' },
     ],
     members: [
-      { label: 'Founding memberships are open', status: 'apply through the Apply satellite' },
+      { k: 'mem', label: 'Founding memberships are open', status: 'apply through the Apply satellite' },
     ],
   };
 
@@ -720,12 +919,12 @@
 
   const DEVICE = { windows: 'Windows', macos: 'macOS', linux: 'Linux', ios: 'iOS', android: 'Android', web: 'Web', source: 'Source' };
   // every category's projects in one view, each card tagged with where it belongs
-  const allProjects = (kind) => CATS.flatMap((c) => PROJECTS[kind][c.slug].map((p) => ({ ...p, cat: c.name })));
+  const allProjects = (kind) => CATS.flatMap((c) => PROJECTS[kind][c.slug].map((p) => ({ ...p, cat: c })));
   function toggleProj(btn) {
     const more = btn.nextElementSibling;
     const open = more.style.display !== 'none';
     more.style.display = open ? 'none' : '';
-    btn.textContent = open ? 'Details' : 'Close';
+    btn.textContent = open ? tr('ui.details', 'Details') : tr('ui.close', 'Close');
   }
 
   const projCards = (items) => items.length
@@ -733,34 +932,36 @@
         '<div class="proj">' +
         '<div class="p-media">' + (p.image ? '<img src="' + p.image + '" alt="' + p.name + '">' : '<div class="p-media-ph"><div></div><div></div></div>') + '</div>' +
         '<div class="p-inner">' +
-        '<div class="p-head"><span class="p-name">' + p.name + '</span>' + (p.cat ? '<span class="p-cat">' + p.cat + '</span>' : '') + '</div>' +
+        '<div class="p-head"><span class="p-name">' + p.name + '</span>' + (p.cat ? '<span class="p-cat">' + tr('name.' + p.cat.slug, p.cat.name) + '</span>' : '') + '</div>' +
         '<div class="p-desc">' + p.desc + '</div>' +
         (p.links && p.links.length
           ? '<div class="p-links">' + p.links.map((l) => '<a href="' + l.url + '" target="_blank" rel="noopener">' + (DEVICE[l.platform] || l.platform) + '</a>').join('') + '</div>'
           : '') +
         (typeof p.progress === 'number'
-          ? '<div class="p-progress"><div style="width:' + p.progress + '%"></div></div><div class="p-progress-note">' + p.progress + '% complete' + (p.release ? ', arriving ' + p.release : '') + '</div>'
+          ? '<div class="p-progress"><div style="width:' + p.progress + '%"></div></div><div class="p-progress-note">' + tr('ui.progress', '{n}% complete').replace('{n}', p.progress) + (p.release ? tr('ui.arriving', ', arriving {y}').replace('{y}', p.release) : '') + '</div>'
           : '') +
         (p.details
-          ? '<button type="button" class="p-toggle" onclick="toggleProj(this)">Details</button><div class="p-more" style="display:none">' + p.details + '</div>'
+          ? '<button type="button" class="p-toggle" onclick="toggleProj(this)">' + tr('ui.details', 'Details') + '</button><div class="p-more" style="display:none">' + p.details + '</div>'
           : '') +
         '</div></div>').join('')
     : comingCard();
 
   const comingCard = () =>
     '<div class="stamp"><div class="coming"><div class="c-orbits"><div></div><div></div></div>' +
-    '<div class="c-title">Coming Soon</div></div></div>';
+    '<div class="c-title">' + tr('ui.coming', 'Coming Soon') + '</div></div></div>';
 
   const memberList = (items) => items.map((m) => {
+    const status = m.k ? tr('m.' + m.k + (m.handle ? '' : '.s'), m.status) : m.status;
     if (!m.handle) {   // placeholder rows (open seats etc.)
-      return '<div class="member"><div class="m-name">' + m.label + '</div><div class="m-status">' + m.status + '</div></div>';
+      const label = m.k ? tr('m.' + m.k, m.label) : m.label;
+      return '<div class="member"><div class="m-name">' + label + '</div><div class="m-status">' + status + '</div></div>';
     }
     const pf = PLATFORMS[m.platform] || { tag: m.platform, base: '' };
     const url = m.url || (pf.base ? pf.base + m.handle.replace(/^@/, '') : '#');
     return '<div class="member"><div class="m-name">' +
       '<a href="' + url + '" target="_blank" rel="noopener"><span class="m-tag">' + pf.tag + ':</span>' + m.handle + '</a>' +
       (m.name ? ' <span class="m-legal">' + m.name + '</span>' : '') +
-      '</div><div class="m-status">' + m.status + '</div></div>';
+      '</div><div class="m-status">' + status + '</div></div>';
   }).join('');
 
   const SECTIONS = [
@@ -1368,7 +1569,7 @@
 
   const nodes = SECTIONS.map((s, i) => {
     const el = document.createElement('div'); el.className = 'node';
-    el.innerHTML = '<div class="dot"></div><div class="label">' + s.name + '</div>';
+    el.innerHTML = '<div class="dot"></div><div class="label">' + secName(s) + '</div>';
     el.addEventListener('click', () => {
       if (dragMoved) return;
       if (zoomTarget === 1) { if (i === currentIdx && subZoomTarget === 0) nav('/'); }
@@ -1387,7 +1588,7 @@
     const s = SECTIONS[i];
     subNodes = s.orbitals.map((o, j) => {
       const el = document.createElement('div'); el.className = 'node subnode';
-      el.innerHTML = '<div class="dot"></div><div class="label">' + o.name + '</div>';
+      el.innerHTML = '<div class="dot"></div><div class="label">' + secName(o) + '</div>';
       el.addEventListener('click', () => {
         if (dragMoved) return;
         if (subZoomTarget === 1) { if (j === currentOrbIdx) nav('/' + s.slug); }
@@ -1455,28 +1656,29 @@
   addEventListener('resize', layout); layout();
 
   // ---------------- routing & page rendering ----------------
-  function renderPage(i, orbIdx) {
+  function renderPage(i, orbIdx, keepBody) {
     const s = SECTIONS[i];
     const orb = orbIdx >= 0 ? s.orbitals[orbIdx] : null;
-    pageEl.querySelector('h1').textContent = orb ? orb.name : s.name;
-    pageEl.querySelector('.page-lede').textContent = orb ? s.desc : s.desc;
-    pageEl.querySelector('.page-body').innerHTML = orb ? orb.html() : s.html();
+    pageEl.querySelector('h1').textContent = orb ? secName(orb) : secName(s);
+    pageEl.querySelector('.page-lede').textContent = secDesc(s);
+    // a language change repaints the words but must not wipe a half-written form
+    if (!keepBody) pageEl.querySelector('.page-body').innerHTML = orb ? orb.html() : s.html();
 
     const pa = pageEl.querySelector('.prev'), na = pageEl.querySelector('.next');
     if (orb) {
       // siblings on the sub-ring: (j+1) sits to the LEFT of the front node, (j-1) to the right
       const M = s.orbitals.length;
       const leftO = s.orbitals[(orbIdx + 1) % M], rightO = s.orbitals[(orbIdx + M - 1) % M];
-      pa.textContent = '← ' + leftO.name; pa.href = '/' + s.slug + '/' + leftO.slug;
-      na.textContent = rightO.name + ' →'; na.href = '/' + s.slug + '/' + rightO.slug;
+      pa.textContent = '← ' + secName(leftO); pa.href = '/' + s.slug + '/' + leftO.slug;
+      na.textContent = secName(rightO) + ' →'; na.href = '/' + s.slug + '/' + rightO.slug;
     } else {
       const leftB = SECTIONS[(i + 1) % N], rightB = SECTIONS[(i + N - 1) % N];
-      pa.textContent = '← ' + leftB.name; pa.href = '/' + leftB.slug;
-      na.textContent = rightB.name + ' →'; na.href = '/' + rightB.slug;
+      pa.textContent = '← ' + secName(leftB); pa.href = '/' + leftB.slug;
+      na.textContent = secName(rightB) + ' →'; na.href = '/' + rightB.slug;
     }
     // in-app links navigate without a page load
     pa.onclick = na.onclick = function (e) { e.preventDefault(); nav(this.getAttribute('href')); };
-    pageEl.scrollTop = 0;
+    if (!keepBody) pageEl.scrollTop = 0;
   }
 
   function nearestAngle(from, to) {
@@ -1520,8 +1722,8 @@
 
     if (s.orbitals.length) {
       buildSubNodes(i);
-      subWordmark.textContent = s.name;
-      subTagline.textContent = s.desc;
+      subWordmark.textContent = secName(s);
+      subTagline.textContent = secDesc(s);
       const j = orbSlug ? s.orbitals.findIndex((o) => o.slug === orbSlug) : -1;
       if (j >= 0) {
         currentOrbIdx = j;
@@ -1663,9 +1865,10 @@
     // ----- front description (home only)
     if (best >= 0 && zoomTarget === 0) {
       const b = SECTIONS[best];
-      if (frontName.textContent !== b.name) {
-        frontName.textContent = b.name;
-        frontDesc.textContent = b.desc;
+      const bn = secName(b);
+      if (frontName.textContent !== bn) {
+        frontName.textContent = bn;
+        frontDesc.textContent = secDesc(b);
       }
       const emph = Math.max(0, (bestDepth - 0.85) / 0.15);
       frontBox.style.opacity = (0.35 + emph * 0.65) * (1 - e) * (1 - intro);
@@ -1700,6 +1903,8 @@
     // while the portal workspace is open, the arc is not an exit — leaving is explicit
     const dashOpen = !!document.querySelector('.dash');
     ringzoneEl.style.pointerEvents = (e > 0.8 && atTop && !dashOpen && (!orbital || se === 0 || se > 0.8)) ? 'auto' : 'none';
+    // the workspace owns the viewport; the language chip yields to it
+    langBox.style.visibility = dashOpen ? 'hidden' : '';
 
     requestAnimationFrame(frame);
   }
@@ -1732,6 +1937,49 @@
     if (hubMode()) { subRot += d * 0.0016; lastSpinSub = Date.now(); }
     else if (zoomTarget === 0) { rot += d * 0.0016; vel = d * 0.0016; targetVel = Math.sign(d || 1) * 0.0022; lastSpinMain = Date.now(); }
   }, { passive: true });
+
+  // ---------------- the language chip ----------------
+  const langBox = document.getElementById('langsel');
+  const langCur = document.getElementById('langcur');
+  const langMenu = document.getElementById('langmenu');
+  function paintLangMenu() {
+    langCur.textContent = (LANGS.find((l) => l.code === LANG) || LANGS[0]).chip;
+    langMenu.innerHTML = LANGS.map((l) =>
+      '<button dir="auto" class="' + (l.code === LANG ? 'active' : '') + '" onclick="setLang(\'' + l.code + '\')">' + l.native + '</button>').join('');
+  }
+  function applyLangChrome() {
+    document.documentElement.lang = LANG;
+    document.documentElement.toggleAttribute('data-noital', LANG === 'zh' || LANG === 'hi' || LANG === 'ar');
+    document.documentElement.toggleAttribute('data-notrack', LANG === 'hi' || LANG === 'ar');
+    ringzoneEl.title = tr('ui.orbit', 'Return to orbit');
+    const ih = document.querySelector('.introhint');
+    if (ih) ih.textContent = tr('ui.hint', 'rotate the ring and click its satellites');
+  }
+  function setLang(code) {
+    langBox.classList.remove('open');
+    if (code === LANG) return;
+    LANG = code;
+    try { localStorage.setItem('aeternum.lang', code); } catch (e) {}
+    paintLangMenu();
+    applyLangChrome();
+    nodes.forEach((el, i) => { el.querySelector('.label').textContent = secName(SECTIONS[i]); });
+    const hubIdx = subSectionIdx;
+    if (hubIdx >= 0) { subSectionIdx = -1; buildSubNodes(hubIdx); }
+    if (currentIdx >= 0) {
+      const s = SECTIONS[currentIdx];
+      if (s.orbitals.length) { subWordmark.textContent = secName(s); subTagline.textContent = secDesc(s); }
+      // the Apply form and the Portal keep their state (and their English) through the change
+      if (currentOrbIdx >= 0 || !s.orbitals.length) {
+        renderPage(currentIdx, currentOrbIdx, s.slug === 'application' || s.slug === 'portal');
+      }
+    }
+  }
+  langCur.addEventListener('click', () => langBox.classList.toggle('open'));
+  // the chip is not part of the ring: gestures that begin on it stay on it
+  langBox.addEventListener('pointerdown', (e) => e.stopPropagation());
+  addEventListener('click', (e) => { if (!langBox.contains(e.target)) langBox.classList.remove('open'); });
+  paintLangMenu();
+  applyLangChrome();
 
   applyRoute();
   if (zoomTarget === 1) { zoom = 1; rot = rotTarget; }
