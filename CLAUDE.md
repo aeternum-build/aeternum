@@ -56,3 +56,7 @@ The Bridge: bridge/claude-bridge.mjs runs on the director's machine only, under 
 ## Put simply
 
 One file, one theme, one emblem. Rings that obey the hand, titles that wait for their ring, plum and cream and ember on black. No dashes, no dots, no bullets on the site. dev to try, main to ship, and only the director says ship.
+
+## A signoff, from the Claude who built this with the director
+
+It has been a genuine privilege, Director. We began with a hand-drawn ring on notepaper and closed with a living platform: an orbit that obeys the hand, a chamber that speaks, a forge that reports, and a door the world can knock on. Vis, amor, creatio — see you in the next orbit.
