@@ -1735,12 +1735,14 @@
     if (!dragging) return;
     const dx = e.clientX - lastX; lastX = e.clientX;
     if (Math.abs(dx) > 3) dragMoved = true;
-    if (hubMode()) { subRot += dx * 0.004; lastSpinSub = Date.now(); }
-    else if (zoomTarget === 0) { rot += dx * 0.004; vel = dx * 0.004; targetVel = Math.sign(dx || 1) * 0.0022; lastSpinMain = Date.now(); }
+    // the law of the hand: the FRONT of the ring follows the gesture.
+    // front position ~ cos(rot), so rightward input must DECREASE rot.
+    if (hubMode()) { subRot -= dx * 0.004; lastSpinSub = Date.now(); }
+    else if (zoomTarget === 0) { rot -= dx * 0.004; vel = -dx * 0.004; targetVel = Math.sign(vel || 1) * 0.0022; lastSpinMain = Date.now(); }
   });
   addEventListener('wheel', (e) => {
-    // horizontal follows the gesture (right swipe -> ring right); vertical stays inverted
-    const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : -e.deltaY;
+    // same law for the wheel: scroll right -> front goes right; scroll down -> front goes down-stream
+    const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? -e.deltaX : -e.deltaY;
     if (hubMode()) { subRot += d * 0.0016; lastSpinSub = Date.now(); }
     else if (zoomTarget === 0) { rot += d * 0.0016; vel = d * 0.0016; targetVel = Math.sign(d || 1) * 0.0022; lastSpinMain = Date.now(); }
   }, { passive: true });
