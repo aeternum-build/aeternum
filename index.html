@@ -1017,6 +1017,7 @@
   function roomLabel(r) {
     if (r.kind === 'all') return 'All Chat';
     if (r.kind === 'officers') return 'BoardRoom';
+    if (r.kind === 'forge') return 'The Forge';
     if (r.kind === 'custom') return r.name || 'Unnamed chat';
     const other = (roomPeeps[r.id] || []).find((u) => u !== portalUserId);
     const p = people.find((x) => x.user_id === other);
@@ -1073,6 +1074,7 @@
       '<button class="' + (dashView === 'news' ? 'active' : '') + '" onclick="openNews()">News</button>' +
       rooms.filter((r) => r.kind === 'all').map((r) => rBtn(r, false)).join('') +
       (officers ? rooms.filter((r) => r.kind === 'officers').map((r) => rBtn(r, false)).join('') : '') +
+      rooms.filter((r) => r.kind === 'forge').map((r) => rBtn(r, false)).join('') +
       grp('Custom Chats',
         mine.map((r) => rBtn(r, true)).join('') +
         '<button class="sub' + (dashView === 'create' ? ' active' : '') + '" onclick="newChatForm()">Create +</button>');
@@ -1116,7 +1118,8 @@
     if (!currentRoom) return;
     dashView = 'chat';
     const foot = document.querySelector('.dash-foot');
-    if (foot) foot.style.display = '';
+    // the Forge is the work speaking — members listen; nobody types into it
+    if (foot) foot.style.display = currentRoom.kind === 'forge' ? 'none' : '';
     document.getElementById('dashhead').textContent = roomLabel(currentRoom);
     document.getElementById('dashbody').innerHTML = '<div id="pinnedbox"></div><div class="chat-log" id="chatlog"></div>';
     buildRail();
