@@ -181,14 +181,19 @@
 
   /* a whispered instruction on arrival: fades in, lingers, and is gone */
   .introhint {
-    position: fixed; bottom: 5%; left: 50%;
-    transform: translateX(-50%);
-    font-size: 0.78rem; letter-spacing: 0.28em; text-transform: uppercase;
-    color: rgba(36, 16, 9, 0.65);
+    position: fixed; bottom: 4%; left: 1.6rem;
+    font-size: 0.72rem; letter-spacing: 0.26em; text-transform: uppercase;
+    color: var(--cream);
+    background: rgba(0, 0, 0, 0.55);
+    border: 2px solid rgba(246, 231, 201, 0.42);
+    border-radius: 6px;
+    padding: 0.8rem 1.2rem;
+    box-shadow: 0 0 18px rgba(232, 137, 74, 0.25), inset 0 0 12px rgba(232, 137, 74, 0.12);
     z-index: 30; pointer-events: none;
     opacity: 0; white-space: nowrap;
     animation: hintcycle 7s ease-in-out 2.8s forwards;
   }
+  @media (max-width: 520px) { .introhint { font-size: 0.6rem; left: 1rem; padding: 0.6rem 0.9rem; } }
   @keyframes hintcycle {
     0% { opacity: 0; }
     18% { opacity: 1; }
