@@ -698,50 +698,21 @@
     { slug: 'fun',       name: 'For Fun' },
   ];
 
-  // dummy rows simulating the future Supabase `projects` table
+  // project rows (future Supabase `projects` table)
   // image: url of a logo (null shows the resting emblem) · details: expandable specs text
   const PROJECTS = {
     completed: {
-      corporate: [
-        { name: 'Ledgerline', image: null,
-          desc: 'A quiet operations ledger for small teams: decisions, spending and commitments in one auditable stream.',
-          details: 'Built for teams of 2 to 50.\nExports to CSV and PDF. Role-based access. Data encrypted at rest.\nRuns in any modern browser; nothing to install.',
-          links: [{ platform: 'web', url: '#' }] },
-      ],
-      developer: [],
-      lifestyle: [
-        { name: 'Fieldnote', image: null,
-          desc: 'A pocket journal that captures a thought in three seconds and files it where you will actually find it again.',
-          details: 'iOS 16+ and Android 12+.\nOn-device transcription. Offline first, syncs when you are.\nExport everything, any time, in plain markdown.',
-          links: [{ platform: 'ios', url: '#' }, { platform: 'android', url: '#' }] },
-      ],
-      everyone: [],
-      fun: [
-        { name: 'Turntable', image: null,
-          desc: 'A shared listening room. Drop a track on the table and everyone in the orbit hears it together.',
-          details: 'Rooms of up to 24 listeners.\nWindows 10+, macOS 13+, or straight from the browser.\nNo accounts for guests; the room key is the invitation.',
-          links: [{ platform: 'windows', url: '#' }, { platform: 'macos', url: '#' }, { platform: 'web', url: '#' }, { platform: 'source', url: '#' }] },
-      ],
+      corporate: [], developer: [], lifestyle: [], everyone: [], fun: [],
     },
     inbound: {
-      corporate: [
-        { name: 'Consensus', image: null, release: '2027', progress: 25,
-          desc: 'Structured decision-making for collectives: propose, argue, vote, and remember why.',
-          details: 'Proposals with structured argument threads.\nWeighted and simple majority voting. A permanent, searchable record of every decision and its reasoning.' },
-      ],
+      corporate: [],
       developer: [
         { name: 'Continuum', image: null, release: '2026', progress: 70,
           desc: 'Your whole desktop context, everything you have seen, read, typed and heard, served to any agent as a single MCP. Local first and private. The core pipeline is complete; Windows capture is in flight.',
           details: 'Capture, segment, index and distil as importable modules.\nServes recall, catch up and profile tools over MCP to any agent.\nEverything stays on the device. PII is redacted before anything is stored.',
           links: [{ platform: 'source', url: 'https://github.com/ExperimentalGuava/continuum' }] },
       ],
-      lifestyle: [],
-      everyone: [
-        { name: 'Beacon', image: null, release: '2027', progress: 40,
-          desc: 'An ambient companion that surfaces what matters before you ask, and stays silent otherwise.',
-          details: 'Signals over notifications: a single quiet surface instead of a hundred pings.\nWorks with your calendar, mail and messages. Private by architecture.' },
-      ],
-      fun: [],
+      lifestyle: [], everyone: [], fun: [],
     },
   };
 
@@ -772,7 +743,7 @@
           ? '<button type="button" class="p-toggle" onclick="toggleProj(this)">Details</button><div class="p-more" style="display:none">' + p.details + '</div>'
           : '') +
         '</div></div>').join('')
-    : '<p style="font-style:italic;opacity:.55">Nothing here yet. The forge is warm.</p>';
+    : comingCard();
 
   const comingCard = () =>
     '<div class="stamp"><div class="coming"><div class="c-orbits"><div></div><div></div></div>' +
@@ -869,7 +840,7 @@
         '</form>') },
 
     { slug: 'completed-projects', name: 'Completed Projects',
-      desc: 'Work that has left the forge. Available to download or purchase.',
+      desc: 'Work that has left the forge. Available via URL, download or purchase.',
       orbitals: [
         { slug: 'all', name: 'All', html: () => projCards(allProjects('completed')) },
         ...CATS.map((c) => ({
