@@ -1739,8 +1739,8 @@
     else if (zoomTarget === 0) { rot += dx * 0.004; vel = dx * 0.004; targetVel = Math.sign(dx || 1) * 0.0022; lastSpinMain = Date.now(); }
   });
   addEventListener('wheel', (e) => {
-    // inverted: scrolling down turns the ring the other way
-    const d = -(Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY);
+    // horizontal follows the gesture (right swipe -> ring right); vertical stays inverted
+    const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : -e.deltaY;
     if (hubMode()) { subRot += d * 0.0016; lastSpinSub = Date.now(); }
     else if (zoomTarget === 0) { rot += d * 0.0016; vel = d * 0.0016; targetVel = Math.sign(d || 1) * 0.0022; lastSpinMain = Date.now(); }
   }, { passive: true });
