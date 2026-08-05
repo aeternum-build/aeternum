@@ -1015,8 +1015,8 @@
       '<div class="dash-side">' +
         '<div class="dash-brand">Aeternum</div>' +
         '<div class="dash-nav" id="railnav">' +
-          '<button class="' + (kind === 'chat' ? 'active' : '') + '" onclick="location.hash=\'#/portal/chat\'">Chat</button>' +
-          '<button class="' + (kind === 'news' ? 'active' : '') + '" onclick="location.hash=\'#/portal/news\'">News Feed</button>' +
+          '<button class="' + (kind === 'chat' ? 'active' : '') + '">Chat</button>' +
+          '<button class="' + (kind === 'news' ? 'active' : '') + '" onclick="openNews()">News Feed</button>' +
         '</div>' +
         '<div class="dash-user">' +
           '<div class="du-h">' + escHtml(portalMember.handle) + '</div>' +
@@ -1026,7 +1026,7 @@
       '</div>' +
       '<div class="dash-main">' +
         '<div class="dash-head"><span id="dashhead">' + (kind === 'chat' ? 'Chat' : 'News Feed') + '</span>' +
-        '<button class="dash-close" onclick="location.hash=\'\'" title="Exit the portal">&times;</button></div>' +
+        '<button class="dash-close" onclick="nav(\'/\')" title="Exit the portal">&times;</button></div>' +
         '<div class="dash-body" id="dashbody"></div>' +
         (kind === 'chat'
           ? '<div class="dash-foot"><input id="chattext" maxlength="2000" placeholder="Speak to the collective" onkeydown="if(event.key===\'Enter\')sendMsg()"><button class="pbtn" onclick="sendMsg()">Send</button></div>'
@@ -1402,8 +1402,8 @@
     el.innerHTML = '<div class="dot"></div><div class="label">' + s.name + '</div>';
     el.addEventListener('click', () => {
       if (dragMoved) return;
-      if (zoomTarget === 1) { if (i === currentIdx && subZoomTarget === 0) location.hash = ''; }
-      else location.hash = '#/' + s.slug;
+      if (zoomTarget === 1) { if (i === currentIdx && subZoomTarget === 0) nav('/'); }
+      else nav('/' + s.slug);
     });
     scene.appendChild(el);
     return el;
@@ -1421,8 +1421,8 @@
       el.innerHTML = '<div class="dot"></div><div class="label">' + o.name + '</div>';
       el.addEventListener('click', () => {
         if (dragMoved) return;
-        if (subZoomTarget === 1) { if (j === currentOrbIdx) location.hash = '#/' + s.slug; }
-        else location.hash = '#/' + s.slug + '/' + o.slug;
+        if (subZoomTarget === 1) { if (j === currentOrbIdx) nav('/' + s.slug); }
+        else nav('/' + s.slug + '/' + o.slug);
       });
       scene.appendChild(el);
       return el;
@@ -1431,7 +1431,10 @@
 
   // ---------------- state ----------------
   // arrival: 1 = far out and spinning, 0 = landed. Deep links skip the fall.
-  let intro = location.hash.length > 1 ? 0 : 1;
+  // legacy hash links (aeternum.build/#/x) quietly become clean paths
+  if (location.hash.startsWith('#/')) history.replaceState({}, '', location.hash.slice(1) || '/');
+  const deepLinked = location.pathname.replace(/\/+$/, '').length > 0;
+  let intro = deepLinked ? 0 : 1;
   let rot = 0, vel = 0.0022, targetVel = 0.0022;
   let zoom = 0, zoomTarget = 0, rotTarget = 0;
   let subRot = 0, subVel = 0.0032;
@@ -1441,7 +1444,7 @@
   const SPIN_HOLD_MS = 7000;
   let lastSpinMain = -Infinity, lastSpinSub = -Infinity;
   // rule: a title may only begin appearing after its ring has fully landed
-  let wmA = location.hash.length > 1 ? 1 : 0;   // home wordmark gate
+  let wmA = deepLinked ? 1 : 0;   // home wordmark gate
   let subWmA = 0;                               // hub wordmark gate
   let currentIdx = -1, currentOrbIdx = -1;
   let swayPhase = 0;
@@ -1495,13 +1498,15 @@
       // siblings on the sub-ring: (j+1) sits to the LEFT of the front node, (j-1) to the right
       const M = s.orbitals.length;
       const leftO = s.orbitals[(orbIdx + 1) % M], rightO = s.orbitals[(orbIdx + M - 1) % M];
-      pa.textContent = '← ' + leftO.name; pa.href = '#/' + s.slug + '/' + leftO.slug;
-      na.textContent = rightO.name + ' →'; na.href = '#/' + s.slug + '/' + rightO.slug;
+      pa.textContent = '← ' + leftO.name; pa.href = '/' + s.slug + '/' + leftO.slug;
+      na.textContent = rightO.name + ' →'; na.href = '/' + s.slug + '/' + rightO.slug;
     } else {
       const leftB = SECTIONS[(i + 1) % N], rightB = SECTIONS[(i + N - 1) % N];
-      pa.textContent = '← ' + leftB.name; pa.href = '#/' + leftB.slug;
-      na.textContent = rightB.name + ' →'; na.href = '#/' + rightB.slug;
+      pa.textContent = '← ' + leftB.name; pa.href = '/' + leftB.slug;
+      na.textContent = rightB.name + ' →'; na.href = '/' + rightB.slug;
     }
+    // in-app links navigate without a page load
+    pa.onclick = na.onclick = function (e) { e.preventDefault(); nav(this.getAttribute('href')); };
     pageEl.scrollTop = 0;
   }
 
@@ -1513,9 +1518,21 @@
     return from + d;
   }
 
+  // clean paths: /our-mission, /portal — pushState in, popstate out
+  function nav(p) {
+    history.pushState({}, '', p || '/');
+    applyRoute();
+    return false;
+  }
+  addEventListener('popstate', applyRoute);
+  // a legacy #/ arriving at any moment converts to a clean path
+  addEventListener('hashchange', () => {
+    if (location.hash.startsWith('#/')) { history.replaceState({}, '', location.hash.slice(1) || '/'); applyRoute(); }
+  });
+
   function applyRoute() {
-    const m = location.hash.match(/^#\/?([^/]*)(?:\/([^/]+))?/);
-    const slug = m ? m[1] : '', orbSlug = m ? m[2] : null;
+    const seg = location.pathname.replace(/^\/+|\/+$/g, '').split('/');
+    const slug = seg[0] || '', orbSlug = seg[1] || null;
     const i = SECTIONS.findIndex((s) => s.slug === slug);
     if (i < 0) {
       currentIdx = -1; currentOrbIdx = -1;
@@ -1558,8 +1575,8 @@
 
   // the arc overhead always climbs one level: orbital page -> hub -> home
   ringzoneEl.addEventListener('click', () => {
-    if (subZoomTarget === 1 && currentIdx >= 0) location.hash = '#/' + SECTIONS[currentIdx].slug;
-    else location.hash = '';
+    if (subZoomTarget === 1 && currentIdx >= 0) nav('/' + SECTIONS[currentIdx].slug);
+    else nav('/');
   });
 
   // ---------------- main loop ----------------
