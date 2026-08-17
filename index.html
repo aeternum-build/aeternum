@@ -695,6 +695,20 @@
     box-shadow: 0 0 24px rgba(232, 137, 74, 0.35);
   }
   .form-note { font-style: italic; font-size: 0.85rem; opacity: 0.55; margin-top: 1rem; }
+/* Little Accountant demo: another product's identity, framed as an exhibit */
+.la-frame { background:#fff; border:1px solid #C63A0F; border-radius:14px; padding:1.1rem 1.2rem 1.3rem; margin-top:1rem;
+  font-family:'Segoe UI',system-ui,sans-serif; color:#191512; text-align:left; }
+.la-head { display:flex; justify-content:space-between; align-items:center; gap:1rem; margin-bottom:.55rem; }
+.la-brand { display:flex; align-items:center; gap:.55rem; font-weight:600; font-size:1rem; }
+.la-ell { width:22px; height:13px; border:2px solid #C63A0F; border-radius:50%; transform:rotate(-18deg); flex:none; }
+.la-worth { text-align:right; }
+.la-worth .la-cap { font-size:.55rem; letter-spacing:.18em; color:#9C8F87; }
+.la-worth .la-fig { font-size:1.3rem; font-weight:700; color:#C63A0F; line-height:1.1; }
+.la-bar { display:flex; flex-wrap:wrap; gap:1rem; align-items:center; font-size:.6rem; letter-spacing:.16em; color:#9C8F87; margin-bottom:.35rem; }
+.la-bar b { cursor:pointer; font-weight:400; }
+.la-bar b.on { color:#C63A0F; }
+.la-bar .la-mode { margin-left:auto; display:flex; gap:.8rem; }
+.la-canvas { width:100%; height:340px; display:block; touch-action:none; }
 </style>
 </head>
 <body>
@@ -913,7 +927,14 @@
           details: 'Capture, segment, index and distil as importable modules.\nServes recall, catch up and profile tools over MCP to any agent.\nEverything stays on the device. PII is redacted before anything is stored.',
           links: [{ platform: 'source', url: 'https://github.com/ExperimentalGuava/continuum' }] },
       ],
-      lifestyle: [], everyone: [], fun: [],
+      lifestyle: [
+        { name: 'Little Accountant', image: null, release: '2026', progress: 45,
+          desc: 'A fully local reader of bank statements for Windows and Mac. It parses your exported CSVs on your own machine, audits every balance chain, and explains your money in plain sentences. No password, no account, nothing ever leaves the device.',
+          details: 'Statements become a vault of integer cents, audited row by row.\nFive views over one vault: the line, the accounts, the outflows, the inflows, the ledger.\nInsights are computed deterministically; a local model will write the prose.',
+          links: [{ platform: 'source', url: 'https://github.com/aeternum-build/little-accountant' }],
+          demo: true },
+      ],
+      everyone: [], fun: [],
     },
   };
 
@@ -942,6 +963,9 @@
           : '') +
         (p.details
           ? '<button type="button" class="p-toggle" onclick="toggleProj(this)">' + tr('ui.details', 'Details') + '</button><div class="p-more" style="display:none">' + p.details + '</div>'
+          : '') +
+        (p.demo
+          ? '<button type="button" class="p-toggle" onclick="laToggle(this)">Live Demo</button><div class="la-slot" style="display:none"></div>'
           : '') +
         '</div></div>').join('')
     : comingCard();
@@ -1980,6 +2004,318 @@
   addEventListener('click', (e) => { if (!langBox.contains(e.target)) langBox.classList.remove('open'); });
   paintLangMenu();
   applyLangChrome();
+
+  // ---- Little Accountant, live: the app's real mathematics, ported by hand ----
+  // one rotation matrix, orthographic on purpose, self fitting, levels through the world.
+  function laToggle(btn) {
+    const slot = btn.parentElement.querySelector('.la-slot');
+    const open = slot.style.display !== 'none';
+    slot.style.display = open ? 'none' : '';
+    btn.textContent = open ? 'Live Demo' : 'Close Demo';
+    if (!open && !slot.dataset.ready) { slot.dataset.ready = '1'; laMount(slot); }
+  }
+
+  function laMount(slot) {
+    // day index from 1 June 2026; [day, amount, category, account, balance]
+    const TX = [
+      [0,2450,'Income',0,3102.45],[1,-650,'Housing',0,2452.45],[2,-42.8,'Groceries',0,2409.65],
+      [3,-5.6,'Transport',0,2404.05],[4,-18.5,'Dining',0,2385.55],[5,-22.99,'Subscriptions',0,2362.56],
+      [6,-500,'Transfers',0,1862.56],[7,-31.4,'Dining',0,1831.16],[8,-54.2,'Groceries',0,1776.96],
+      [9,-143.75,'Utilities',0,1633.21],[10,-100,'Cash',0,1533.21],[11,-13.99,'Subscriptions',0,1519.22],
+      [13,-89,'Shopping',0,1430.22],[14,2450,'Income',0,3880.22],[15,-650,'Housing',0,3230.22],
+      [16,-61.35,'Groceries',0,3168.87],[17,-18.2,'Transport',0,3150.67],[18,-45,'Utilities',0,3105.67],
+      [20,-27.8,'Dining',0,3077.87],[21,-249,'Shopping',0,2828.87],[23,-16.99,'Subscriptions',0,2811.88],
+      [24,-38.75,'Health',0,2773.13],[26,-1.05,'Fees',0,2772.08],[27,-74.9,'Uncategorised',0,2697.18],
+      [29,1.13,'Interest',0,2698.31],
+      [30,2450,'Income',0,5148.31],[31,-650,'Housing',0,4498.31],[32,-55.2,'Groceries',0,4443.11],
+      [34,-22.99,'Subscriptions',0,4420.12],[35,-48.75,'Groceries',0,4371.37],[36,-500,'Transfers',0,3871.37],
+      [37,-28.9,'Dining',0,3842.47],[39,-152.4,'Utilities',0,3690.07],[40,-13.99,'Subscriptions',0,3676.08],
+      [41,-24.5,'Health',0,3651.58],[43,-349,'Shopping',0,3302.58],[44,2450,'Income',0,5752.58],
+      [45,-650,'Housing',0,5102.58],[46,-72.1,'Groceries',0,5030.48],[47,-22.35,'Transport',0,5008.13],
+      [48,-45,'Utilities',0,4963.13],[50,-31.6,'Dining',0,4931.53],[52,-85.45,'Shopping',0,4846.08],
+      [53,-16.99,'Subscriptions',0,4829.09],[55,-68.3,'Uncategorised',0,4760.79],[57,-42,'Entertainment',0,4718.79],
+      [58,-1.12,'Fees',0,4717.67],[60,1.35,'Interest',0,4719.02],
+      [6,500,'Transfers',1,10500],[29,32.1,'Interest',1,10532.1],
+      [36,500,'Transfers',1,11032.1],[60,33.8,'Interest',1,11065.9],
+    ];
+    const DAY0 = new Date(2026, 5, 1), DAYS = 61;
+    const dayName = (d) => { const t = new Date(DAY0); t.setDate(t.getDate() + d); return t.getDate() + ' ' + ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][t.getMonth()]; };
+    const $$ = (v, c) => '$' + v.toLocaleString('en-AU', { minimumFractionDigits: c ? 2 : 0, maximumFractionDigits: c ? 2 : 0 });
+
+    // per account daily closing balances, then net worth by carry forward
+    const ACCTS = [{ name: 'CBA Smart Access' }, { name: 'Macquarie Savings' }];
+    ACCTS.forEach((a, i) => {
+      const byDay = {};
+      TX.filter((t) => t[3] === i).forEach((t) => { byDay[t[0]] = t[4]; });
+      a.pts = Object.keys(byDay).map(Number).sort((x, y) => x - y).map((d) => [d, byDay[d]]);
+    });
+    const nwDays = [...new Set(ACCTS.flatMap((a) => a.pts.map((p) => p[0])))].sort((x, y) => x - y);
+    const NW = nwDays.map((d) => [d, ACCTS.reduce((s, a) => {
+      const last = a.pts.filter((p) => p[0] <= d).pop();
+      return s + (last ? last[1] : 0);
+    }, 0)]);
+
+    // flow grids: loudest eight categories as ridges, every category in the totals
+    function grid(sign) {
+      const cells = TX.filter((t) => t[2] !== 'Transfers' && t[1] * sign > 0);
+      const byCat = {};
+      cells.forEach((t) => { byCat[t[2]] = (byCat[t[2]] || 0) + Math.abs(t[1]); });
+      const cats = Object.keys(byCat).sort((a, b) => byCat[b] - byCat[a]).slice(0, 8);
+      const g = { cats, spend: cats.map(() => new Array(DAYS).fill(0)), totals: new Array(DAYS).fill(0) };
+      cells.forEach((t) => {
+        const c = cats.indexOf(t[2]);
+        if (c >= 0) g.spend[c][t[0]] += Math.abs(t[1]);
+        g.totals[t[0]] += Math.abs(t[1]);
+      });
+      g.max = Math.max(...cells.map((t) => Math.abs(t[1])));
+      g.maxDaily = Math.max(...g.totals);
+      return g;
+    }
+    const OUT = grid(-1), IN = grid(1);
+
+    slot.innerHTML =
+      '<div class="la-frame"><div class="la-head">' +
+      '<div class="la-brand"><span class="la-ell"></span>Little Accountant</div>' +
+      '<div class="la-worth"><div class="la-cap">TOTAL BANK BALANCE NETWORTH</div><div class="la-fig">' + $$(NW[NW.length - 1][1], 1) + '</div></div></div>' +
+      '<div class="la-bar"><b class="on">THE LINE</b><b>THE ACCOUNTS</b><b>THE OUTFLOWS</b><b>THE INFLOWS</b>' +
+      '<span class="la-mode" style="display:none"><b>2D</b><b class="on">3D</b></span></div>' +
+      '<canvas class="la-canvas"></canvas></div>';
+
+    const tabs = [...slot.querySelectorAll('.la-bar > b')];
+    const modeBox = slot.querySelector('.la-mode');
+    const [m2d, m3d] = modeBox.querySelectorAll('b');
+    const canvas = slot.querySelector('.la-canvas');
+    const ctx = canvas.getContext('2d');
+    const ORANGE = '#C63A0F', FAINT = '#9C8F87', INK = '#3A322C';
+
+    let view = 0, flat = false, yaw = -0.55, pitch = 0.45, tYaw = yaw, tPitch = pitch;
+    let hover = null, drag = null, fit = { s: 1, ox: 0, oy: 0 };
+
+    tabs.forEach((tb, i) => tb.addEventListener('click', () => {
+      view = i;
+      tabs.forEach((t, j) => t.classList.toggle('on', j === i));
+      modeBox.style.display = i === 0 ? 'none' : '';
+    }));
+    function setFlat(f) {
+      flat = f;
+      tYaw = f ? 0 : -0.55;
+      tYaw += Math.round((yaw - tYaw) / (Math.PI * 2)) * Math.PI * 2; // fly home the short way round
+      tPitch = f ? 0 : 0.45;
+      m2d.classList.toggle('on', f);
+      m3d.classList.toggle('on', !f);
+    }
+    m2d.addEventListener('click', () => setFlat(true));
+    m3d.addEventListener('click', () => setFlat(false));
+
+    canvas.addEventListener('pointerdown', (e) => { drag = [e.offsetX, e.offsetY]; canvas.setPointerCapture(e.pointerId); });
+    canvas.addEventListener('pointermove', (e) => {
+      hover = [e.offsetX, e.offsetY];
+      if (drag && view > 0 && !flat) {
+        yaw += (e.offsetX - drag[0]) * 0.008; tYaw = yaw;
+        pitch = Math.max(-1.35, Math.min(1.35, pitch + (e.offsetY - drag[1]) * 0.005)); tPitch = pitch;
+        drag = [e.offsetX, e.offsetY];
+      }
+    });
+    canvas.addEventListener('pointerup', () => { drag = null; });
+    canvas.addEventListener('pointerleave', () => { hover = null; drag = null; });
+
+    function raw(x, y, z, W, H) {
+      const w = W * 0.6, h = H * 0.52, d = W * 0.3;
+      const X = (x - 0.5) * w, Y = y * h, Z0 = (z - 0.5) * d;
+      const x1 = X * Math.cos(yaw) - Z0 * Math.sin(yaw);
+      const z1 = X * Math.sin(yaw) + Z0 * Math.cos(yaw);
+      return [x1, Y * Math.cos(pitch) - z1 * Math.sin(pitch)];
+    }
+    function computeFit(W, H) {
+      let nX = 1e9, xX = -1e9, nY = 1e9, xY = -1e9;
+      for (const x of [-0.06, 0, 1, 1.05]) for (const y of [0, 1]) for (const z of [-0.12, 0, 1]) {
+        const [px, py] = raw(x, y, z, W, H);
+        nX = Math.min(nX, px); xX = Math.max(xX, px); nY = Math.min(nY, py); xY = Math.max(xY, py);
+      }
+      const L = Math.min(60, W * 0.12), R = Math.min(120, W * 0.26), T = 14, B = 26;
+      const s = Math.min((W - L - R) / Math.max(1, xX - nX), (H - T - B) / Math.max(1, xY - nY));
+      fit = { s, ox: L + ((W - L - R) - (xX - nX) * s) / 2 - nX * s, oy: T + ((H - T - B) - (xY - nY) * s) / 2 + xY * s };
+    }
+    const P = (x, y, z, W, H) => { const [x1, y1] = raw(x, y, z, W, H); return [fit.ox + x1 * fit.s, fit.oy - y1 * fit.s]; };
+    function span(lo, hi, target) {
+      target = target || 5;
+      if (hi <= lo) return { b: lo, t: hi, ticks: [] };
+      const rough = (hi - lo) / target, mag = Math.pow(10, Math.floor(Math.log10(rough)));
+      const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => s >= rough);
+      const b = Math.floor(lo / step) * step, t = Math.ceil(hi / step) * step, ticks = [];
+      for (let v = b; v <= t + 1e-9; v += step) ticks.push(v);
+      return { b, t, ticks };
+    }
+    function tip(x, y, text) {
+      ctx.font = '600 12px "Segoe UI",sans-serif';
+      const w = ctx.measureText(text).width;
+      const tx = Math.min(Math.max(x + 14, 4), canvas.clientWidth - w - 14);
+      const ty = Math.max(y - 30, 4);
+      ctx.fillStyle = 'rgba(255,255,255,.95)'; ctx.strokeStyle = '#EFE7E1';
+      ctx.beginPath(); ctx.roundRect(tx - 7, ty - 4, w + 14, 24, 6); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = INK; ctx.fillText(text, tx, ty + 12);
+    }
+    const poly = (pts, close) => { ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); if (close) ctx.closePath(); };
+
+    function drawLine2D(W, H) {
+      const lo0 = Math.min(...NW.map((p) => p[1])), hi0 = Math.max(...NW.map((p) => p[1]));
+      const head = Math.max(1, hi0 - lo0);
+      const lo = lo0 - head * 0.18;
+      const sp = span(lo, hi0 + head * 0.12);
+      const hi = sp.t, padL = Math.min(62, W * 0.15), padR = Math.min(110, W * 0.24), padT = 22, padB = 30;
+      const w = W - padL - padR, h = H - padT - padB;
+      const X = (d) => padL + (d / (DAYS - 1)) * w, Y = (v) => padT + ((hi - v) / (hi - lo)) * h;
+      ctx.font = '11px "Segoe UI",sans-serif';
+      sp.ticks.filter((t) => t >= lo).forEach((t) => {
+        ctx.strokeStyle = '#F5EFEA'; ctx.beginPath(); ctx.moveTo(padL, Y(t)); ctx.lineTo(padL + w, Y(t)); ctx.stroke();
+        ctx.fillStyle = FAINT; ctx.textAlign = 'right'; ctx.fillText($$(t), padL - 8, Y(t) + 4);
+      });
+      ctx.textAlign = 'left';
+      poly(NW.map((p) => [X(p[0]), Y(p[1])]).concat([[X(60), Y(lo)], [X(NW[0][0]), Y(lo)]]), true);
+      ctx.fillStyle = 'rgba(198,58,15,.07)'; ctx.fill();
+      poly(NW.map((p) => [X(p[0]), Y(p[1])]));
+      ctx.strokeStyle = ORANGE; ctx.lineWidth = 3; ctx.lineJoin = 'round'; ctx.stroke(); ctx.lineWidth = 1;
+      const end = [X(NW[NW.length - 1][0]), Y(NW[NW.length - 1][1])];
+      ctx.fillStyle = ORANGE; ctx.beginPath(); ctx.arc(end[0], end[1], 4.5, 0, 7); ctx.fill();
+      ctx.font = '700 14px "Segoe UI",sans-serif'; ctx.fillText($$(NW[NW.length - 1][1]), end[0] + 10, end[1] + 4);
+      ctx.font = '11px "Segoe UI",sans-serif'; ctx.fillStyle = FAINT;
+      ctx.fillText(dayName(0) + ' 2026', padL, H - 8);
+      ctx.textAlign = 'right'; ctx.fillText(dayName(60) + ' 2026', padL + w, H - 8); ctx.textAlign = 'left';
+      if (hover) {
+        let best = NW[0];
+        NW.forEach((p) => { if (Math.abs(X(p[0]) - hover[0]) < Math.abs(X(best[0]) - hover[0])) best = p; });
+        ctx.strokeStyle = 'rgba(156,143,135,.5)'; ctx.setLineDash([3, 3]);
+        ctx.beginPath(); ctx.moveTo(X(best[0]), padT); ctx.lineTo(X(best[0]), padT + h); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle = '#fff'; ctx.strokeStyle = ORANGE; ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.arc(X(best[0]), Y(best[1]), 4, 0, 7); ctx.fill(); ctx.stroke(); ctx.lineWidth = 1;
+        tip(hover[0], hover[1], dayName(best[0]) + '  ' + $$(best[1], 1));
+      }
+    }
+
+    function cashAxis(lo, hi, hOf, W, H, target) {
+      const sp = span(lo, hi, target);
+      ctx.font = '10px "Segoe UI",sans-serif'; ctx.textAlign = 'right';
+      sp.ticks.forEach((t) => {
+        const y = hOf(t);
+        poly([P(0, y, 0, W, H), P(1, y, 0, W, H), P(1, y, 1, W, H), P(0, y, 1, W, H)], true);
+        ctx.strokeStyle = '#F0E8E2'; ctx.stroke();
+        const a = P(-0.025, y, 0, W, H);
+        ctx.fillStyle = FAINT; ctx.fillText($$(t), a[0], a[1] + 3);
+      });
+      ctx.textAlign = 'left';
+      poly([P(0, hOf(sp.b), 0, W, H), P(0, hOf(sp.t), 0, W, H)]); ctx.strokeStyle = '#E5DCD5'; ctx.stroke();
+      return sp;
+    }
+    function floorAndDates(W, H) {
+      poly([P(0, 0, 0, W, H), P(1, 0, 0, W, H), P(1, 0, 1, W, H), P(0, 0, 1, W, H)], true);
+      ctx.fillStyle = 'rgba(198,58,15,.025)'; ctx.fill(); ctx.strokeStyle = '#EFE7E1'; ctx.stroke();
+      ctx.font = '11px "Segoe UI",sans-serif'; ctx.fillStyle = FAINT;
+      const a = P(0.02, 0, -0.12, W, H), b = P(0.98, 0, -0.12, W, H);
+      ctx.fillText(dayName(0), a[0], a[1]); ctx.textAlign = 'right'; ctx.fillText(dayName(60), b[0], b[1]); ctx.textAlign = 'left';
+    }
+    const depth = (z) => (z - 0.5) * Math.cos(yaw);
+    const presence = (z) => 1 - (Math.cos(yaw) >= 0 ? z : 1 - z);
+    const Z = (i, n) => n === 1 ? 0.5 : 1 - i / (n - 1);
+
+    function drawTerrain(g, W, H) {
+      floorAndDates(W, H);
+      if (flat) {
+        const m = span(0, g.maxDaily).t;
+        cashAxis(0, g.maxDaily, (t) => t / m, W, H);
+        const face = [P(0, 0, 0, W, H)];
+        for (let d = 0; d < DAYS; d++) face.push(P(d / (DAYS - 1), g.totals[d] / m, 0, W, H));
+        face.push(P(1, 0, 0, W, H));
+        poly(face, true); ctx.fillStyle = 'rgba(198,58,15,.12)'; ctx.fill();
+        ctx.strokeStyle = ORANGE; ctx.lineWidth = 2.5; ctx.lineJoin = 'round'; ctx.stroke(); ctx.lineWidth = 1;
+        if (hover) {
+          let best = -1, bd = 18;
+          for (let d = 0; d < DAYS; d++) {
+            const dx = Math.abs(P(d / (DAYS - 1), g.totals[d] / m, 0, W, H)[0] - hover[0]);
+            if (dx < bd) { bd = dx; best = d; }
+          }
+          if (best >= 0) {
+            const a = P(best / (DAYS - 1), g.totals[best] / m, 0, W, H);
+            ctx.fillStyle = '#fff'; ctx.strokeStyle = ORANGE; ctx.lineWidth = 2.5;
+            ctx.beginPath(); ctx.arc(a[0], a[1], 4, 0, 7); ctx.fill(); ctx.stroke(); ctx.lineWidth = 1;
+            tip(hover[0], hover[1], dayName(best) + '  ' + $$(g.totals[best], 1));
+          }
+        }
+        return;
+      }
+      const m = span(0, g.max).t, n = g.cats.length;
+      [...Array(n).keys()].sort((a, b) => depth(Z(b, n)) - depth(Z(a, n))).forEach((c) => {
+        const z = Z(c, n), pr = presence(z), pts = [P(0, 0, z, W, H)];
+        for (let d = 0; d < DAYS; d++) pts.push(P(d / (DAYS - 1), g.spend[c][d] / m, z, W, H));
+        pts.push(P(1, 0, z, W, H));
+        poly(pts, true);
+        ctx.fillStyle = 'rgba(198,58,15,' + (0.1 + 0.25 * pr) + ')'; ctx.fill();
+        ctx.strokeStyle = 'rgba(198,58,15,' + (0.45 + 0.45 * pr) + ')'; ctx.lineWidth = 1.6; ctx.lineJoin = 'round'; ctx.stroke(); ctx.lineWidth = 1;
+        const a = P(1.03, 0, z, W, H);
+        ctx.font = '10px "Segoe UI",sans-serif'; ctx.fillStyle = FAINT; ctx.fillText(g.cats[c].toUpperCase(), a[0], a[1]);
+      });
+      cashAxis(0, g.max, (t) => t / m, W, H);
+      if (hover) {
+        let best = null, bd = 20;
+        for (let c = 0; c < n; c++) for (let d = 0; d < DAYS; d++) {
+          if (!g.spend[c][d]) continue;
+          const p = P(d / (DAYS - 1), g.spend[c][d] / m, Z(c, n), W, H);
+          const dist = Math.hypot(p[0] - hover[0], p[1] - hover[1]);
+          if (dist < bd) { bd = dist; best = [c, d, p]; }
+        }
+        if (best) {
+          ctx.fillStyle = '#fff'; ctx.strokeStyle = ORANGE; ctx.lineWidth = 2.5;
+          ctx.beginPath(); ctx.arc(best[2][0], best[2][1], 4.5, 0, 7); ctx.fill(); ctx.stroke(); ctx.lineWidth = 1;
+          tip(hover[0], hover[1], g.cats[best[0]] + '  ' + dayName(best[1]) + '  ' + $$(g.spend[best[0]][best[1]], 1));
+        }
+      }
+    }
+
+    function drawAccounts(W, H) {
+      floorAndDates(W, H);
+      const lo = 0, hi = span(0, Math.max(...NW.map((p) => p[1]))).t;
+      cashAxis(lo, hi, (t) => t / hi, W, H);
+      const series = ACCTS.map((a, i) => ({ name: a.name, pts: a.pts, z: i === 0 ? 0.6 : 1, bold: false }))
+        .concat([{ name: 'Net worth', pts: NW, z: 0, bold: true }]);
+      series.sort((a, b) => depth(b.z) - depth(a.z)).forEach((s) => {
+        const pr = presence(s.z), al = s.bold ? 1 : 0.35 + 0.5 * pr;
+        poly(s.pts.map((p) => P(p[0] / (DAYS - 1), p[1] / hi, s.z, W, H)));
+        ctx.strokeStyle = 'rgba(198,58,15,' + al + ')'; ctx.lineWidth = s.bold ? 3 : 1.7; ctx.lineJoin = 'round'; ctx.stroke(); ctx.lineWidth = 1;
+        const lp = s.pts[s.pts.length - 1], e = P(lp[0] / (DAYS - 1), lp[1] / hi, s.z, W, H);
+        ctx.fillStyle = 'rgba(198,58,15,' + al + ')'; ctx.beginPath(); ctx.arc(e[0], e[1], s.bold ? 4.5 : 3, 0, 7); ctx.fill();
+        ctx.font = (s.bold ? '700 13px' : '10px') + ' "Segoe UI",sans-serif';
+        ctx.fillStyle = s.bold ? ORANGE : FAINT;
+        ctx.fillText(s.name + '  ' + $$(lp[1]), Math.min(e[0] + 10, W - 150), e[1] - 6);
+      });
+      if (hover) {
+        let best = null, bd = 20;
+        series.forEach((s) => s.pts.forEach((p) => {
+          const q = P(p[0] / (DAYS - 1), p[1] / hi, s.z, W, H);
+          const dist = Math.hypot(q[0] - hover[0], q[1] - hover[1]);
+          if (dist < bd) { bd = dist; best = [s, p, q]; }
+        }));
+        if (best) {
+          ctx.fillStyle = '#fff'; ctx.strokeStyle = ORANGE; ctx.lineWidth = 2.5;
+          ctx.beginPath(); ctx.arc(best[2][0], best[2][1], 4.5, 0, 7); ctx.fill(); ctx.stroke(); ctx.lineWidth = 1;
+          tip(hover[0], hover[1], best[0].name + '  ' + dayName(best[1][0]) + '  ' + $$(best[1][1], 1));
+        }
+      }
+    }
+
+    (function frame() {
+      if (!slot.isConnected) return;
+      if (Math.abs(yaw - tYaw) > 0.003 || Math.abs(pitch - tPitch) > 0.003) {
+        yaw += (tYaw - yaw) * 0.16; pitch += (tPitch - pitch) * 0.16;
+      } else { yaw = tYaw; pitch = tPitch; }
+      const dpr = devicePixelRatio || 1, W = canvas.clientWidth, H = canvas.clientHeight;
+      if (canvas.width !== W * dpr) { canvas.width = W * dpr; canvas.height = H * dpr; }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, W, H);
+      canvas.style.cursor = view > 0 && !flat ? (drag ? 'grabbing' : 'grab') : 'crosshair';
+      if (view === 0) drawLine2D(W, H);
+      else { computeFit(W, H); if (view === 1) drawAccounts(W, H); else drawTerrain(view === 2 ? OUT : IN, W, H); }
+      requestAnimationFrame(frame);
+    })();
+  }
 
   applyRoute();
   if (zoomTarget === 1) { zoom = 1; rot = rotTarget; }
