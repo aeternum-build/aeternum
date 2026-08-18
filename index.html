@@ -698,6 +698,8 @@
 /* Little Accountant demo: another product's identity, framed as an exhibit */
 .p-toggle { margin-right: 1.2rem; }
 .la-slot { margin-bottom: .4rem; }
+.proj[data-slug] { cursor: pointer; }
+.proj.open { border-color: rgba(232,137,74,.55); }
 .la-frame { background:#fff; border:1px solid #C63A0F; border-radius:14px; padding:1.1rem 1.2rem 1.3rem; margin-top:1rem;
   font-family:'Segoe UI',system-ui,sans-serif; color:#191512; text-align:left; }
 .la-head { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:.4rem 1rem; margin-bottom:.55rem; }
@@ -929,13 +931,13 @@
     inbound: {
       corporate: [],
       developer: [
-        { name: 'Continuum', image: null, release: '2026', progress: 70,
+        { slug: 'continuum', name: 'Continuum', image: null, release: '2026', progress: 70,
           desc: 'Your whole desktop context, everything you have seen, read, typed and heard, served to any agent as a single MCP. Local first and private. The core pipeline is complete; Windows capture is in flight.',
           details: 'Capture, segment, index and distil as importable modules.\nServes recall, catch up and profile tools over MCP to any agent.\nEverything stays on the device. PII is redacted before anything is stored.',
           links: [{ platform: 'source', url: 'https://github.com/ExperimentalGuava/continuum' }] },
       ],
       lifestyle: [
-        { name: 'Little Accountant', image: null, release: '2026', progress: 45,
+        { slug: 'little-accountant', name: 'Little Accountant', image: null, release: '2026', progress: 45,
           desc: 'A fully local reader of bank statements for Windows and Mac. It parses your exported CSVs on your own machine, audits every balance chain, and explains your money in plain sentences. No password, no account, nothing ever leaves the device.',
           details: 'Statements become a vault of integer cents, audited row by row.\nFive views over one vault: the line, the accounts, the outflows, the inflows, the ledger.\nInsights are computed deterministically; a local model will write the prose.',
           links: [{ platform: 'source', url: 'https://github.com/aeternum-build/little-accountant' }],
@@ -957,7 +959,7 @@
 
   const projCards = (items) => items.length
     ? items.map((p) =>
-        '<div class="proj">' +
+        '<div class="proj"' + (p.slug ? ' data-slug="' + p.slug + '" onclick="projOpen(event,this)"' : '') + '>' +
         '<div class="p-media">' + (p.image ? '<img src="' + p.image + '" alt="' + p.name + '">' : '<div class="p-media-ph"><div></div><div></div></div>') + '</div>' +
         '<div class="p-inner">' +
         '<div class="p-head"><span class="p-name">' + p.name + '</span>' + (p.cat ? '<span class="p-cat">' + tr('name.' + p.cat.slug, p.cat.name) + '</span>' : '') + '</div>' +
@@ -972,7 +974,7 @@
           ? '<button type="button" class="p-toggle" onclick="toggleProj(this)">' + tr('ui.details', 'Details') + '</button><div class="p-more" style="display:none">' + p.details + '</div>'
           : '') +
         (p.demo
-          ? '<button type="button" class="p-toggle" onclick="laToggle(this)">Live Demo</button><div class="la-slot" style="display:none"></div>'
+          ? '<button type="button" class="p-toggle" onclick="laToggle(this)">Close Demo</button><div class="la-slot"></div>'
           : '') +
         '</div></div>').join('')
     : comingCard();
@@ -1759,6 +1761,7 @@
       if (j >= 0) {
         currentOrbIdx = j;
         renderPage(i, j);
+        syncProj(seg[2] || null); // a third segment names one project, opened
         subZoomTarget = 1;
         subRotTarget = nearestAngle(subRot, Math.PI / 2 - (j / s.orbitals.length) * Math.PI * 2 - Math.PI / 2);
       } else {
@@ -2014,6 +2017,33 @@
 
   // ---- Little Accountant, live: the app's real mathematics, ported by hand ----
   // one rotation matrix, orthographic on purpose, self fitting, levels through the world.
+  // a card is a door: clicking it gives the project its own route and opens it
+  function projOpen(e, el) {
+    if (e.target.closest('a,button,select,input,canvas,.la-slot')) return;
+    const seg = location.pathname.replace(/^\/+|\/+$/g, '').split('/');
+    const base = '/' + seg[0] + (seg[1] ? '/' + seg[1] : '');
+    nav(seg[2] === el.dataset.slug ? base : base + '/' + el.dataset.slug);
+  }
+
+  function laMountAll() {
+    document.querySelectorAll('.la-slot:not([data-ready])').forEach((el) => { el.dataset.ready = '1'; laMount(el); });
+  }
+
+  function syncProj(projSlug) {
+    laMountAll(); // demos wake with the page
+    document.querySelectorAll('.proj[data-slug]').forEach((el) => {
+      const open = el.dataset.slug === projSlug;
+      el.classList.toggle('open', open);
+      const more = el.querySelector('.p-more');
+      if (more) {
+        more.style.display = open ? '' : 'none';
+        const btn = more.previousElementSibling;
+        if (btn) btn.textContent = open ? tr('ui.close', 'Close') : tr('ui.details', 'Details');
+      }
+      if (open) setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+    });
+  }
+
   function laToggle(btn) {
     const slot = btn.parentElement.querySelector('.la-slot');
     const open = slot.style.display !== 'none';
