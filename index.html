@@ -962,7 +962,7 @@
         '<div class="proj"' + (p.slug ? ' data-slug="' + p.slug + '" onclick="projOpen(event,this)"' : '') + '>' +
         '<div class="p-media">' + (p.image ? '<img src="' + p.image + '" alt="' + p.name + '">' : '<div class="p-media-ph"><div></div><div></div></div>') + '</div>' +
         '<div class="p-inner">' +
-        '<div class="p-head"><span class="p-name">' + p.name + '</span>' + (p.cat ? '<span class="p-cat">' + tr('name.' + p.cat.slug, p.cat.name) + '</span>' : '') + '</div>' +
+        '<div class="p-head"><span class="p-name">' + p.name + '</span></div>' +
         '<div class="p-desc">' + p.desc + '</div>' +
         (p.links && p.links.length
           ? '<div class="p-links">' + p.links.map((l) => '<a href="' + l.url + '" target="_blank" rel="noopener">' + (DEVICE[l.platform] || l.platform) + '</a>').join('') + '</div>'
