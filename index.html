@@ -2114,8 +2114,8 @@
       '<div class="la-frame"><div class="la-head">' +
       '<div class="la-brand"><span class="la-ell"></span>Little Accountant</div>' +
       '<div class="la-worth"><div class="la-cap">TOTAL BANK BALANCE NETWORTH</div><div class="la-fig">' + $$(NW[NW.length - 1][1], 1) + '</div></div></div>' +
-      '<div class="la-bar"><b class="on">THE LINE</b><b>THE ACCOUNTS</b><b>THE OUTFLOWS</b><b>THE INFLOWS</b>' +
-      '<span class="la-mode" style="display:none"><b>2D</b><b class="on">3D</b></span></div>' +
+      '<div class="la-bar"><b>THE LINE</b><b class="on">THE ACCOUNTS</b><b>THE OUTFLOWS</b><b>THE INFLOWS</b>' +
+      '<span class="la-mode"><b>2D</b><b class="on">3D</b></span></div>' +
       '<canvas class="la-canvas"></canvas></div>';
 
     const tabs = [...slot.querySelectorAll('.la-bar > b')];
@@ -2125,7 +2125,7 @@
     const ctx = canvas.getContext('2d');
     const ORANGE = '#C63A0F', FAINT = '#9C8F87', INK = '#3A322C';
 
-    let view = 0, flat = false, yaw = -0.55, pitch = 0.45, tYaw = yaw, tPitch = pitch;
+    let view = 1, flat = false, yaw = -0.55, pitch = 0.45, tYaw = yaw, tPitch = pitch;
     let hover = null, drag = null, fit = { s: 1, ox: 0, oy: 0 };
 
     tabs.forEach((tb, i) => tb.addEventListener('click', () => {
