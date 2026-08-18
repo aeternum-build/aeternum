@@ -700,7 +700,12 @@
 .la-slot { margin-bottom: .4rem; }
 .la-frame { background:#fff; border:1px solid #C63A0F; border-radius:14px; padding:1.1rem 1.2rem 1.3rem; margin-top:1rem;
   font-family:'Segoe UI',system-ui,sans-serif; color:#191512; text-align:left; }
-.la-head { display:flex; justify-content:space-between; align-items:center; gap:1rem; margin-bottom:.55rem; }
+.la-head { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:.4rem 1rem; margin-bottom:.55rem; }
+@media (max-width:560px) {
+  .la-canvas { height:290px; }
+  .la-frame { padding:.9rem .8rem 1rem; }
+  .proj { flex-direction:column; } /* phones stack the card: media above, story below */
+}
 .la-brand { display:flex; align-items:center; gap:.55rem; font-weight:600; font-size:1rem; }
 .la-ell { width:22px; height:13px; border:2px solid #C63A0F; border-radius:50%; transform:rotate(-18deg); flex:none; }
 .la-worth { text-align:right; }
@@ -2134,7 +2139,8 @@
         const [px, py] = raw(x, y, z, W, H);
         nX = Math.min(nX, px); xX = Math.max(xX, px); nY = Math.min(nY, py); xY = Math.max(xY, py);
       }
-      const L = Math.min(60, W * 0.12), R = Math.min(120, W * 0.26), T = 14, B = 26;
+      const SM = W < 520;
+      const L = SM ? 44 : Math.min(60, W * 0.12), R = SM ? W * 0.12 : Math.min(120, W * 0.26), T = 14, B = 26;
       const s = Math.min((W - L - R) / Math.max(1, xX - nX), (H - T - B) / Math.max(1, xY - nY));
       fit = { s, ox: L + ((W - L - R) - (xX - nX) * s) / 2 - nX * s, oy: T + ((H - T - B) - (xY - nY) * s) / 2 + xY * s };
     }
@@ -2163,8 +2169,9 @@
       const lo0 = Math.min(...NW.map((p) => p[1])), hi0 = Math.max(...NW.map((p) => p[1]));
       const head = Math.max(1, hi0 - lo0);
       const lo = lo0 - head * 0.18;
-      const sp = span(lo, hi0 + head * 0.12);
-      const hi = sp.t, padL = Math.min(62, W * 0.15), padR = Math.min(110, W * 0.24), padT = 22, padB = 30;
+      const SM = W < 520;
+      const sp = span(lo, hi0 + head * 0.12, SM ? 4 : 5);
+      const hi = sp.t, padL = SM ? 46 : Math.min(62, W * 0.15), padR = SM ? 64 : Math.min(110, W * 0.24), padT = 22, padB = 30;
       const w = W - padL - padR, h = H - padT - padB;
       const X = (d) => padL + (d / (DAYS - 1)) * w, Y = (v) => padT + ((hi - v) / (hi - lo)) * h;
       ctx.font = '11px "Segoe UI",sans-serif';
@@ -2179,7 +2186,8 @@
       ctx.strokeStyle = ORANGE; ctx.lineWidth = 3; ctx.lineJoin = 'round'; ctx.stroke(); ctx.lineWidth = 1;
       const end = [X(NW[NW.length - 1][0]), Y(NW[NW.length - 1][1])];
       ctx.fillStyle = ORANGE; ctx.beginPath(); ctx.arc(end[0], end[1], 4.5, 0, 7); ctx.fill();
-      ctx.font = '700 14px "Segoe UI",sans-serif'; ctx.fillText($$(NW[NW.length - 1][1]), end[0] + 10, end[1] + 4);
+      ctx.font = (SM ? '700 12px' : '700 14px') + ' "Segoe UI",sans-serif';
+      ctx.fillText($$(NW[NW.length - 1][1]), end[0] + 10, end[1] + 4);
       ctx.font = '11px "Segoe UI",sans-serif'; ctx.fillStyle = FAINT;
       ctx.fillText(dayName(0) + ' 2026', padL, H - 8);
       ctx.textAlign = 'right'; ctx.fillText(dayName(60) + ' 2026', padL + w, H - 8); ctx.textAlign = 'left';
@@ -2195,7 +2203,7 @@
     }
 
     function cashAxis(lo, hi, hOf, W, H, target) {
-      const sp = span(lo, hi, target);
+      const sp = span(lo, hi, target || (W < 520 ? 3 : 5));
       ctx.font = '10px "Segoe UI",sans-serif'; ctx.textAlign = 'right';
       sp.ticks.forEach((t) => {
         const y = hOf(t);
@@ -2252,8 +2260,10 @@
         poly(pts, true);
         ctx.fillStyle = 'rgba(198,58,15,' + (0.1 + 0.25 * pr) + ')'; ctx.fill();
         ctx.strokeStyle = 'rgba(198,58,15,' + (0.45 + 0.45 * pr) + ')'; ctx.lineWidth = 1.6; ctx.lineJoin = 'round'; ctx.stroke(); ctx.lineWidth = 1;
-        const a = P(1.03, 0, z, W, H);
-        ctx.font = '10px "Segoe UI",sans-serif'; ctx.fillStyle = FAINT; ctx.fillText(g.cats[c].toUpperCase(), a[0], a[1]);
+        if (W >= 520) { // small screens cede the labels to the cursor tips
+          const a = P(1.03, 0, z, W, H);
+          ctx.font = '10px "Segoe UI",sans-serif'; ctx.fillStyle = FAINT; ctx.fillText(g.cats[c].toUpperCase(), a[0], a[1]);
+        }
       });
       cashAxis(0, g.max, (t) => t / m, W, H);
       if (hover) {
@@ -2286,7 +2296,7 @@
         ctx.fillStyle = 'rgba(198,58,15,' + al + ')'; ctx.beginPath(); ctx.arc(e[0], e[1], s.bold ? 4.5 : 3, 0, 7); ctx.fill();
         ctx.font = (s.bold ? '700 13px' : '10px') + ' "Segoe UI",sans-serif';
         ctx.fillStyle = s.bold ? ORANGE : FAINT;
-        ctx.fillText(s.name + '  ' + $$(lp[1]), Math.min(e[0] + 10, W - 150), e[1] - 6);
+        ctx.fillText((W < 520 ? '' : s.name + '  ') + $$(lp[1]), Math.min(e[0] + 10, W - (W < 520 ? 66 : 150)), e[1] - 6);
       });
       if (hover) {
         let best = null, bd = 20;
