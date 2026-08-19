@@ -726,7 +726,6 @@
   font-family:'Segoe UI',system-ui,sans-serif; color:#191512; text-align:left; }
 .la-head { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:.4rem 1rem; margin-bottom:.55rem; }
 @media (max-width:560px) {
-  .la-canvas { height:290px; }
   .la-frame { padding:.9rem .8rem 1rem; }
   .proj { flex-direction:column; } /* phones stack the card: media above, story below */
 }
@@ -740,6 +739,13 @@
 .la-bar b.on { color:#C63A0F; }
 .la-bar .la-mode { margin-left:auto; display:flex; gap:.8rem; }
 .la-canvas { width:100%; height:340px; display:block; touch-action:none; }
+/* the projection fits itself to the box and never distorts, so on a narrow box it
+   scales to the width and leaves the rest of the height empty. Four to three is the
+   shape it settles into; past the width where that reaches the exhibit's old height,
+   the cap holds and the drawing fills as it always has. */
+@supports (aspect-ratio: 4 / 3) {
+  .la-canvas { height:auto; aspect-ratio:4 / 3; max-height:340px; }
+}
 </style>
 </head>
 <body>
