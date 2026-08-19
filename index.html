@@ -342,14 +342,36 @@
   .proj .p-name { font-family: 'Playfair Display', Georgia, serif; font-style: italic; font-size: 1.3rem; }
   .proj .p-cat { font-size: 0.68rem; letter-spacing: 0.2em; text-transform: uppercase; opacity: 0.5; }
   .proj .p-desc { line-height: 1.7; opacity: 0.75; margin-top: 0.6rem; }
+  /* a card's controls wear the pill of .p-links, so they read as controls;
+     the caret turns over when the panel it names is open */
   .p-toggle {
-    background: none; border: none; cursor: pointer;
-    color: var(--cream); opacity: 0.6;
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    background: rgba(246, 231, 201, 0.06);
+    border: 1px solid rgba(246, 231, 201, 0.4); border-radius: 999px;
+    cursor: pointer;
+    color: var(--cream); opacity: 0.8;
     font-family: Georgia, serif; font-size: 0.72rem;
     letter-spacing: 0.2em; text-transform: uppercase;
-    padding: 0; margin-top: 0.9rem;
+    padding: 0.5rem 1.15rem; margin-top: 0.9rem;
+    transition: opacity 0.25s, background 0.25s, border-color 0.25s, box-shadow 0.25s;
   }
-  .p-toggle:hover { opacity: 1; }
+  .p-toggle::after {
+    content: ''; flex: none; width: 0.4em; height: 0.4em;
+    border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor;
+    transform: translateY(-0.15em) rotate(45deg);
+    transition: transform 0.3s ease;
+  }
+  .p-toggle[aria-expanded="true"]::after { transform: translateY(0.1em) rotate(-135deg); }
+  .p-toggle[aria-expanded="true"] { opacity: 1; background: rgba(246, 231, 201, 0.12); border-color: rgba(246, 231, 201, 0.75); }
+  .p-toggle:hover {
+    opacity: 1; background: rgba(246, 231, 201, 0.12);
+    border-color: var(--cream); box-shadow: 0 0 14px rgba(232, 137, 74, 0.35);
+  }
+  .p-toggle:focus-visible {
+    /* the ring is the glow; the transparent outline keeps a mark in forced colours */
+    outline: 2px solid transparent; outline-offset: 2px; opacity: 1;
+    border-color: var(--cream); box-shadow: 0 0 0 2px rgba(232, 137, 74, 0.55);
+  }
   .p-more {
     margin-top: 0.9rem; padding-top: 0.9rem;
     border-top: 1px solid rgba(246, 231, 201, 0.15);
@@ -954,12 +976,16 @@
     const more = btn.nextElementSibling;
     const open = more.style.display !== 'none';
     more.style.display = open ? 'none' : '';
+    btn.setAttribute('aria-expanded', open ? 'false' : 'true');
     btn.textContent = open ? tr('ui.details', 'Details') : tr('ui.close', 'Close');
   }
 
+  // a card's two foldables rest in opposite states: details closed, the demo open.
+  // each control names the panel it governs, so the caret and the reader agree.
   const projCards = (items) => items.length
-    ? items.map((p) =>
-        '<div class="proj"' + (p.slug ? ' data-slug="' + p.slug + '" onclick="projOpen(event,this)"' : '') + '>' +
+    ? items.map((p, i) => {
+      const uid = p.slug || 'p' + i;
+      return '<div class="proj"' + (p.slug ? ' data-slug="' + p.slug + '" onclick="projOpen(event,this)"' : '') + '>' +
         '<div class="p-media">' + (p.image ? '<img src="' + p.image + '" alt="' + p.name + '">' : '<div class="p-media-ph"><div></div><div></div></div>') + '</div>' +
         '<div class="p-inner">' +
         '<div class="p-head"><span class="p-name">' + p.name + '</span></div>' +
@@ -970,14 +996,16 @@
         (typeof p.progress === 'number'
           ? '<div class="p-progress"><div style="width:' + p.progress + '%"></div></div><div class="p-progress-note">' + tr('ui.progress', '{n}% complete').replace('{n}', p.progress) + (p.release ? tr('ui.arriving', ', arriving {y}').replace('{y}', p.release) : '') + '</div>'
           : '') +
-        // a card's two foldables rest in opposite states: details closed, the demo open
         (p.details
-          ? '<button type="button" class="p-toggle" onclick="toggleProj(this)">' + tr('ui.details', 'Details') + '</button><div class="p-more" style="display:none">' + p.details + '</div>'
+          ? '<button type="button" class="p-toggle" aria-expanded="false" aria-controls="more-' + uid + '" onclick="toggleProj(this)">' + tr('ui.details', 'Details') + '</button>' +
+            '<div class="p-more" id="more-' + uid + '" style="display:none">' + p.details + '</div>'
           : '') +
         (p.demo
-          ? '<button type="button" class="p-toggle" onclick="laToggle(this)">Close Demo</button><div class="la-slot"></div>'
+          ? '<button type="button" class="p-toggle" aria-expanded="true" aria-controls="demo-' + uid + '" onclick="laToggle(this)">Live Demo</button>' +
+            '<div class="la-slot" id="demo-' + uid + '"></div>'
           : '') +
-        '</div></div>').join('')
+        '</div></div>';
+    }).join('')
     : comingCard();
 
   const comingCard = () =>
@@ -1696,7 +1724,10 @@
     pageEl.querySelector('h1').textContent = orb ? secName(orb) : secName(s);
     pageEl.querySelector('.page-lede').textContent = secDesc(s);
     // a language change repaints the words but must not wipe a half-written form
-    if (!keepBody) pageEl.querySelector('.page-body').innerHTML = orb ? orb.html() : s.html();
+    if (!keepBody) {
+      pageEl.querySelector('.page-body').innerHTML = orb ? orb.html() : s.html();
+      laMountAll(); // a repainted shelf gets its demos back, awake and open
+    }
 
     const pa = pageEl.querySelector('.prev'), na = pageEl.querySelector('.next');
     if (orb) {
@@ -2006,6 +2037,7 @@
       // the Apply form and the Portal keep their state (and their English) through the change
       if (currentOrbIdx >= 0 || !s.orbitals.length) {
         renderPage(currentIdx, currentOrbIdx, s.slug === 'application' || s.slug === 'portal');
+        syncProj(location.pathname.replace(/^\/+|\/+$/g, '').split('/')[2] || null, true); // the lit card survives the repaint
       }
     }
   }
@@ -2030,12 +2062,12 @@
     document.querySelectorAll('.la-slot:not([data-ready])').forEach((el) => { el.dataset.ready = '1'; laMount(el); });
   }
 
-  function syncProj(projSlug) {
-    laMountAll(); // demos wake with the page
+  // stay: a repaint relights the card where the reader already sits, without travelling to it
+  function syncProj(projSlug, stay) {
     document.querySelectorAll('.proj[data-slug]').forEach((el) => {
       const open = el.dataset.slug === projSlug;
       el.classList.toggle('open', open); // the route lights the card; details wait for the hand
-      if (open) setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+      if (open && !stay) setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
     });
   }
 
@@ -2043,7 +2075,7 @@
     const slot = btn.parentElement.querySelector('.la-slot');
     const open = slot.style.display !== 'none';
     slot.style.display = open ? 'none' : '';
-    btn.textContent = open ? 'Live Demo' : 'Close Demo';
+    btn.setAttribute('aria-expanded', open ? 'false' : 'true'); // the caret carries the state, the label names the panel
     if (!open && !slot.dataset.ready) { slot.dataset.ready = '1'; laMount(slot); }
   }
 
