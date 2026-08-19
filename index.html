@@ -970,6 +970,7 @@
         (typeof p.progress === 'number'
           ? '<div class="p-progress"><div style="width:' + p.progress + '%"></div></div><div class="p-progress-note">' + tr('ui.progress', '{n}% complete').replace('{n}', p.progress) + (p.release ? tr('ui.arriving', ', arriving {y}').replace('{y}', p.release) : '') + '</div>'
           : '') +
+        // a card's two foldables rest in opposite states: details closed, the demo open
         (p.details
           ? '<button type="button" class="p-toggle" onclick="toggleProj(this)">' + tr('ui.details', 'Details') + '</button><div class="p-more" style="display:none">' + p.details + '</div>'
           : '') +
@@ -2033,13 +2034,7 @@
     laMountAll(); // demos wake with the page
     document.querySelectorAll('.proj[data-slug]').forEach((el) => {
       const open = el.dataset.slug === projSlug;
-      el.classList.toggle('open', open);
-      const more = el.querySelector('.p-more');
-      if (more) {
-        more.style.display = open ? '' : 'none';
-        const btn = more.previousElementSibling;
-        if (btn) btn.textContent = open ? tr('ui.close', 'Close') : tr('ui.details', 'Details');
-      }
+      el.classList.toggle('open', open); // the route lights the card; details wait for the hand
       if (open) setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
     });
   }
